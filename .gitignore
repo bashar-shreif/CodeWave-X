@@ -1,1 +1,63 @@
-./codewave-x/node_modules/
+./codewave-x-ext/node_modules/*
+
+
+
+# compiled output
+./codewave-x-server/dist
+./codewave-x-server/node_modules
+./codewave-x-server/build
+
+# Logs
+./codewave-x-server/logs
+./codewave-x-server/*.log
+./codewave-x-server/npm-debug.log*
+./codewave-x-server/pnpm-debug.log*
+./codewave-x-server/yarn-debug.log*
+./codewave-x-server/yarn-error.log*
+./codewave-x-server/lerna-debug.log*
+
+# OS
+./codewave-x-server/.DS_Store
+
+# Tests
+./codewave-x-server/coverage
+./codewave-x-server/.nyc_output
+
+# IDEs and editors
+./codewave-x-server/.idea
+./codewave-x-server/.project
+./codewave-x-server/.classpath
+./codewave-x-server/.c9/
+./codewave-x-server/*.launch
+./codewave-x-server/.settings/
+./codewave-x-server/*.sublime-workspace
+
+# IDE - VSCode
+./codewave-x-server/.vscode/*
+./codewave-x-server/!.vscode/settings.json
+./codewave-x-server/!.vscode/tasks.json
+./codewave-x-server/!.vscode/launch.json
+./codewave-x-server/!.vscode/extensions.json
+
+# dotenv environment variable files
+./codewave-x-server/.env
+./codewave-x-server/.env.development.local
+./codewave-x-server/.env.test.local
+./codewave-x-server/.env.production.local
+./codewave-x-server/.env.local
+
+# temp directory
+./codewave-x-server/.temp
+./codewave-x-server/.tmp
+
+# Runtime data
+./codewave-x-server/pids
+./codewave-x-server/*.pid
+./codewave-x-server/*.seed
+./codewave-x-server/*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+./codewave-x-server/report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+codewave-x-server/node_modules/
+codewave-x-server/dist/
+codewave-x-server/.env
