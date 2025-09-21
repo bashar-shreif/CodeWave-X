@@ -1,6 +1,8 @@
 import { ManifestEntry } from './manifest.type';
 import type { StackHit } from './stackHit.type';
 import { StatBlock } from './statBlock.type';
+import { RouteEntry } from './routeEntry.type';
+
 export type ListFilesInput = {
   repoUri: string;
   includeGlobs?: string[];
@@ -56,4 +58,14 @@ export type SummarizeDepsOutput = {
   pkgManagers: string[];
   scripts: Record<string, string>;
   notes: string[];
+};
+
+export type SummarizeRoutesInput = {
+  repoRoot: string;
+  manifest: ManifestEntry[];
+  stack?: DetectStackOutput | { hits: StackHit[] };
+};
+export type SummarizeRoutesOutput = {
+  routes: RouteEntry[];
+  frameworksDetected: Array<RouteEntry['framework']>;
 };

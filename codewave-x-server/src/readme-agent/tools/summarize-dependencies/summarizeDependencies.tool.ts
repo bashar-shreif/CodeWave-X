@@ -66,7 +66,6 @@ export const summarizeDependencies = async (
 
   [a, b, c, d, e, f, g, h].forEach(merge);
 
-  // lightweight normalization
   runtime.sort();
   dev.sort();
   tools.sort();
