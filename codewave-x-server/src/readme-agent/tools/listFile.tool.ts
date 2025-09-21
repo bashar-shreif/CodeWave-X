@@ -4,24 +4,12 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import ignore from 'ignore';
 import micromatch from 'micromatch';
-import { DEFAULT_EXCLUDES } from '../types/excludes.type';
+import { DEFAULT_EXCLUDES } from '../constants/excludes.constant';
+import { ListFilesInput, ListFilesOutput } from '../types/listFiles.types';
+import { ManifestEntry } from '../types/manifest.type';
 
 const KB = 1024;
 const MB = 1024 * KB;
-
-export type ListFilesInput = {
-  repoUri: string;
-  includeGlobs?: string[];
-  excludeGlobs?: string[];
-  sizeLimitMB?: number;
-  respectGitignore?: boolean;
-};
-export type ManifestEntry = { path: string; size: number; hash: string };
-export type ListFilesOutput = {
-  repoHash: string;
-  manifest: ManifestEntry[];
-  totals: { files: number; bytes: number; skipped: number };
-};
 
 const hashFile = async (
   absPath: string,

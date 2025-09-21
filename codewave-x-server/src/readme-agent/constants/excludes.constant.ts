@@ -48,8 +48,8 @@ export const DEFAULT_EXCLUDES = [
   '**/log/**',
 
   // Temp
-  '**/tmp/**',
-  '**/temp/**',
+  // '**/tmp/**',
+  // '**/temp/**',
 
   // Binary/artifact files
   '**/*.exe',
