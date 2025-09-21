@@ -2,6 +2,8 @@ import { ManifestEntry } from './manifest.type';
 import type { StackHit } from './stackHit.type';
 import { StatBlock } from './statBlock.type';
 import { RouteEntry } from './routeEntry.type';
+import { Component } from './component.type';
+import { LangProfile } from './langProfile.type';
 
 export type ListFilesInput = {
   repoUri: string;
@@ -65,7 +67,24 @@ export type SummarizeRoutesInput = {
   manifest: ManifestEntry[];
   stack?: DetectStackOutput | { hits: StackHit[] };
 };
+
 export type SummarizeRoutesOutput = {
   routes: RouteEntry[];
   frameworksDetected: Array<RouteEntry['framework']>;
+};
+
+export type SummarizeArchitectureInput = {
+  repoRoot: string;
+  manifest: ManifestEntry[];
+  stack?: DetectStackOutput;
+  deps?: SummarizeDepsOutput;
+  langProfile?: LangProfile;
+};
+
+export type SummarizeArchitectureOutput = {
+  components: Component[];
+  entrypoints: string[];
+  configFiles: string[];
+  dataFlowHints: string[];
+  confidence: 'low' | 'medium' | 'high';
 };
