@@ -61,3 +61,7 @@
 codewave-x-server/node_modules/
 codewave-x-server/dist/
 codewave-x-server/.env
+
+
+codewave-x-server/workspace/tmp/*
+codewave-x-server/uploads/tmp/*
