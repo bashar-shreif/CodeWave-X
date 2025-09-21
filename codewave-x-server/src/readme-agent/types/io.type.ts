@@ -43,3 +43,17 @@ export type ComputeStatsOutput = {
   totals: StatBlock;
   byLanguage: Record<string, StatBlock>;
 };
+
+export type SummarizeDepsInput = {
+  repoRoot: string;
+  manifest: ManifestEntry[];
+};
+
+export type SummarizeDepsOutput = {
+  runtime: string[];
+  dev: string[];
+  tools: string[];
+  pkgManagers: string[];
+  scripts: Record<string, string>;
+  notes: string[];
+};
