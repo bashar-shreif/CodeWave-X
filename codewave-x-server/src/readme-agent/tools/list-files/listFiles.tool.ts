@@ -1,12 +1,12 @@
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import crypto from 'node:crypto';
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import * as path from 'node:path';
+import * as crypto from 'node:crypto';
 import ignore from 'ignore';
-import micromatch from 'micromatch';
-import { DEFAULT_EXCLUDES } from '../constants/excludes.constant';
-import { ListFilesInput, ListFilesOutput } from '../types/listFiles.types';
-import { ManifestEntry } from '../types/manifest.type';
+import * as micromatch from 'micromatch';
+import { DEFAULT_EXCLUDES } from '../../constants/excludes.constant';
+import { ListFilesInput, ListFilesOutput } from '../../types/io.type';
+import { ManifestEntry } from '../../types/manifest.type';
 
 const KB = 1024;
 const MB = 1024 * KB;
@@ -29,7 +29,11 @@ const loadGitignore = async (root: string) => {
   const ig = ignore();
   try {
     const txt = await fsp.readFile(path.join(root, '.gitignore'), 'utf8');
-    ig.add(txt.split(/\r?\n/));
+    const lines = txt
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.startsWith('#'));
+    ig.add(lines);
   } catch {}
   ig.add(DEFAULT_EXCLUDES);
   return ig;
@@ -53,7 +57,7 @@ export const listFiles = async (
     sizeLimitMB = 5,
     respectGitignore = true,
   } = input;
-
+  const ignored: { path: string; reason: string }[] = [];
   const root = path.resolve(repoUri);
   const ig = respectGitignore
     ? await loadGitignore(root)
@@ -71,25 +75,35 @@ export const listFiles = async (
       const abs = path.join(dir, ent.name);
       const rel = relSafe(root, abs);
 
-      if (ig.ignores(rel)) continue;
-      if (excludeGlobs.length && micromatch.isMatch(rel, excludeGlobs))
-        continue;
-
       const lst = await fsp.lstat(abs);
-      if (lst.isSymbolicLink()) continue;
+      if (lst.isSymbolicLink()) {
+        ignored.push({ path: rel, reason: 'symlink' });
+        continue;
+      }
+
       if (ent.isDirectory()) {
+        const relDir = rel.endsWith('/') ? rel : `${rel}/`;
+        if (ig.ignores(relDir)) {
+          ignored.push({ path: relDir, reason: 'defaultExcludes' });
+          continue;
+        }
         stack.push(abs);
         continue;
       }
+
       if (!ent.isFile()) continue;
 
-      if (includeGlobs.length && !micromatch.isMatch(rel, includeGlobs))
+      if (ig.ignores(rel)) continue;
+      if (excludeGlobs.length && micromatch.isMatch(rel, excludeGlobs))
         continue;
 
       if (lst.size > sizeLimitMB * MB) {
         skipped++;
         continue;
       }
+
+      if (includeGlobs.length && !micromatch.isMatch(rel, includeGlobs))
+        continue;
 
       const { size, sha256 } = await hashFile(abs);
       manifest.push({ path: rel, size, hash: sha256 });
@@ -112,5 +126,6 @@ export const listFiles = async (
     repoHash,
     manifest,
     totals: { files: manifest.length, bytes: totalBytes, skipped },
+    ignored,
   };
 };

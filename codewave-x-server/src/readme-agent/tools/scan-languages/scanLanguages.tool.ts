@@ -1,12 +1,9 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import {
-  ScanLanguagesInput,
-  ScanLanguagesOutput,
-} from '../types/scanLanguaage.types';
-import { BINARY_EXTS } from '../constants/binaryExts.constant';
-import { EXT_TO_LANG } from '../constants/languageExts.constant';
+import { ScanLanguagesInput, ScanLanguagesOutput } from '../../types/io.type';
+import { BINARY_EXTS } from '../../constants/binaryExts.constant';
+import { EXT_TO_LANG } from '../../constants/languageExts.constant';
 
 const normalizeLang = (lang: string): string => {
   switch (lang) {
@@ -33,7 +30,7 @@ const detectLanguage = (relPath: string): string => {
   const ext = path.posix.extname(base).replace('.', '').toLowerCase();
   if (!ext) return 'other';
   return EXT_TO_LANG[ext] ?? (BINARY_EXTS.has(ext) ? 'binary' : 'other');
-}
+};
 
 const countLOC = async (absPath: string): Promise<number> => {
   const stat = await fsp.stat(absPath);
@@ -56,7 +53,7 @@ const countLOC = async (absPath: string): Promise<number> => {
     });
     stream.on('error', reject);
   });
-}
+};
 
 export const scanLanguages = async (
   input: ScanLanguagesInput,
@@ -85,4 +82,4 @@ export const scanLanguages = async (
   }
 
   return { byLanguage, totals, method: 'LOC' };
-}
+};

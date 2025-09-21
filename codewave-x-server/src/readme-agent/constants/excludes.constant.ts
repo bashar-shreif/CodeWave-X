@@ -1,28 +1,28 @@
 export const DEFAULT_EXCLUDES = [
-  // VCS
   '**/.git/**',
-  '**/.git',
+  '**/.svn/**',
+  '**/.hg/**',
 
-  // Package managers
   '**/node_modules/**',
   '**/vendor/**',
+  '**/.venv/**',
+  '**/venv/**',
+  '**/.pnpm-store/**',
 
-  // Build & dist
   '**/dist/**',
   '**/build/**',
   '**/out/**',
-  '**/bin/**',
-  '**/obj/**',
-
-  // Framework caches
   '**/.next/**',
   '**/.nuxt/**',
-  '**/.gatsby/**',
-  '**/.expo/**',
   '**/.turbo/**',
   '**/.parcel-cache/**',
+  '**/.cache/**',
+  '**/coverage/**',
+  '**/target/**',
+  '**/bin/**',
+  '**/obj/**',
+  '**/public/build/**',
 
-  // Language-specific caches
   '**/__pycache__/**',
   '**/.mypy_cache/**',
   '**/.pytest_cache/**',
@@ -31,27 +31,25 @@ export const DEFAULT_EXCLUDES = [
   '**/.ruff_cache/**',
   '**/.ccls-cache/**',
 
-  // Laravel / PHP specifics
+  '**/logs/**',
+  '**/log/**',
   '**/bootstrap/cache/**',
-  '**/storage/**',           // logs, sessions, compiled views
-  '**/.env',                 // sensitive
+  '**/storage/**',
+
+  '**/.env',
   '**/.env.*',
 
-  // IDE/project configs
   '**/.idea/**',
   '**/.vscode/**',
   '**/*.iml',
 
-  // Coverage / reports
-  '**/coverage/**',
-  '**/logs/**',
-  '**/log/**',
+  '**/*.lock',
+  '**/*.min.*',
+  '**/*.log',
+  '**/*.tmp',
+  '**/*.temp',
+  '**/*.bak',
 
-  // Temp
-  // '**/tmp/**',
-  // '**/temp/**',
-
-  // Binary/artifact files
   '**/*.exe',
   '**/*.dll',
   '**/*.so',
@@ -64,28 +62,22 @@ export const DEFAULT_EXCLUDES = [
   '**/*.war',
   '**/*.ear',
 
-  // System junk
+  '**/*.iso',
+  '**/*.zip',
+  '**/*.gz',
+  '**/*.tgz',
+  '**/*.bz2',
+  '**/*.xz',
+  '**/*.7z',
+
   '**/.DS_Store',
   '**/Thumbs.db',
   '**/desktop.ini',
 
-  // Lock & minified
-  '**/*.lock',
-  '**/*.min.*',
-
-  // Logs & temp files
-  '**/*.log',
-  '**/*.tmp',
-  '**/*.temp',
-  '**/*.bak',
-
-  // Debug logs
   '**/npm-debug.log*',
   '**/yarn-debug.log*',
   '**/yarn-error.log*',
   '**/pnpm-debug.log*',
   '**/lerna-debug.log*',
-
-  // Swap files
-  '**/*.swp',
+  '**/*.swp'
 ];
