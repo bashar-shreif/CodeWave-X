@@ -1,6 +1,6 @@
 import { ManifestEntry } from './manifest.type';
 import type { StackHit } from './stackHit.type';
-
+import { StatBlock } from './statBlock.type';
 export type ListFilesInput = {
   repoUri: string;
   includeGlobs?: string[];
@@ -32,3 +32,14 @@ export type ScanLanguagesOutput = {
 export type DetectStackInput = { repoRoot: string; manifest: ManifestEntry[] };
 
 export type DetectStackOutput = { hits: StackHit[] };
+
+export type ComputeStatsInput = {
+  repoRoot: string;
+  manifest: ManifestEntry[];
+  includeLangs?: string[];
+};
+
+export type ComputeStatsOutput = {
+  totals: StatBlock;
+  byLanguage: Record<string, StatBlock>;
+};
