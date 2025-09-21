@@ -88,3 +88,27 @@ export type SummarizeArchitectureOutput = {
   dataFlowHints: string[];
   confidence: 'low' | 'medium' | 'high';
 };
+
+export type SummarizeTestsOutput = {
+  frameworks: string[];
+  runners: string[];
+  assertionLibs: string[];
+  scripts: Record<string, string>;
+  locations: {
+    patternsFound: string[];
+    testDirs: string[];
+    testFiles: number;
+  };
+  coverage: {
+    source: 'coverage-summary.json' | 'lcov.info' | 'junit.xml' | null;
+    linesPct?: number;
+    statementsPct?: number;
+    branchesPct?: number;
+    functionsPct?: number;
+    totals?: { tests?: number; failures?: number; skipped?: number };
+  };
+  status: {
+    hasTests: boolean;
+    notes: string[];
+  };
+};
