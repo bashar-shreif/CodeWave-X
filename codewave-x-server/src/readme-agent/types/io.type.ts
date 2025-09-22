@@ -7,6 +7,7 @@ import { LangProfile } from './langProfile.type';
 import { CIWorkflow } from './ciWorkflow.type';
 import { DocItem } from './docItem.type';
 import { SecretHit } from './secureHit.type';
+import { Draft } from './draft.type';
 
 export type ListFilesInput = {
   repoUri: string;
@@ -219,6 +220,20 @@ export type SummarizeReadmeInput = {
 };
 
 export type SummarizeReadmeOutput = {
+  title: string;
+  outline: string[];
+  sections: Record<string, string>;
+  markdown: string;
+};
+
+export type ComposeFinalReadmeInput = {
+  repoRoot: string;
+  draft: Draft;
+  preferBadges?: boolean;
+  addTOC?: boolean;
+};
+
+export type ComposeFinalReadmeOutput = {
   title: string;
   outline: string[];
   sections: Record<string, string>;
