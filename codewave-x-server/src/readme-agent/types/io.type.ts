@@ -112,3 +112,35 @@ export type SummarizeTestsOutput = {
     notes: string[];
   };
 };
+
+export type SummarizeConfigOutput = {
+  bundlers: string[]; // Vite, Webpack, Rollup, esbuild, tsup
+  builders: string[]; // Next, Nuxt, Angular, SvelteKit, Astro
+  linters: string[]; // ESLint
+  formatters: string[]; // Prettier
+  cssTools: string[]; // Tailwind, PostCSS
+  monoRepo: {
+    managers: string[]; // Turborepo, Nx, Lerna, pnpm workspaces, Yarn workspaces
+    workspaces: boolean;
+    workspaceGlobs?: string[];
+  };
+  ts: {
+    enabled: boolean;
+    target?: string;
+    module?: string;
+    jsx?: string;
+    strict?: boolean;
+    paths?: Record<string, string[]>;
+    tsconfigPath?: string;
+  };
+  eslint: {
+    present: boolean;
+    configPaths: string[];
+  };
+  prettier: {
+    present: boolean;
+    configPaths: string[];
+  };
+  configsFound: string[]; // relative paths
+  notes: string[];
+};
