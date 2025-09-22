@@ -5,6 +5,7 @@ import { RouteEntry } from './routeEntry.type';
 import { Component } from './component.type';
 import { LangProfile } from './langProfile.type';
 import { CIWorkflow } from './ciWorkflow.type';
+import { DocItem } from './docItem.type';
 
 export type ListFilesInput = {
   repoUri: string;
@@ -162,4 +163,24 @@ export type SummarizeCIOutput = {
   secrets: string[];
   caching: string[];
   status: { hasCI: boolean; notes: string[] };
+};
+
+export type SummarizeDocsOutput = {
+  files: DocItem[];
+  index: {
+    rootReadme?: string;
+    docsDirs: string[];
+    siteGenerators: string[]; // mkdocs, docusaurus, vuepress
+    storybook?: { present: boolean; stories: number; configPath?: string };
+    openapi: Array<{
+      path: string;
+      title?: string;
+      version?: string;
+      endpoints?: number;
+    }>;
+    adrs: Array<{ path: string; title?: string }>;
+  };
+  topics: Record<string, { present: boolean; sources: string[] }>;
+  stats: { mdFiles: number; docFiles: number };
+  status: { hasDocs: boolean; notes: string[] };
 };
