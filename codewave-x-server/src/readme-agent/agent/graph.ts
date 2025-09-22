@@ -11,6 +11,7 @@ import { ciNode } from '../nodes/ci.node';
 import { docsNode } from '../nodes/docs.node';
 import { securityNode } from '../nodes/security.node';
 import { mergeSignalsNode } from '../nodes/mergeSignals.node';
+import { writeSectionsNode } from '../nodes/writeSections.node';
 
 export const compileReadmeGraph = () => {
   const g = new StateGraph(Channels);
@@ -26,6 +27,7 @@ export const compileReadmeGraph = () => {
   g.addNode('Docs', docsNode);
   g.addNode('Security', securityNode);
   g.addNode('MergeSignals', mergeSignalsNode);
+  g.addNode('WriteSections', writeSectionsNode);
 
   (g as any).addEdge(START, 'IngestRepo');
   (g as any).addEdge('IngestRepo', 'Scan');
@@ -38,7 +40,8 @@ export const compileReadmeGraph = () => {
   (g as any).addEdge('CI', 'Docs');
   (g as any).addEdge('Docs', 'Security');
   (g as any).addEdge('Security', 'MergeSignals');
-  (g as any).addEdge('MergeSignals', END);
+  (g as any).addEdge('MergeSignals', 'WriteSections');
+  (g as any).addEdge('WriteSections', END);
 
   return g.compile();
 };
