@@ -6,6 +6,7 @@ import { Component } from './component.type';
 import { LangProfile } from './langProfile.type';
 import { CIWorkflow } from './ciWorkflow.type';
 import { DocItem } from './docItem.type';
+import { SecretHit } from './secureHit.type';
 
 export type ListFilesInput = {
   repoUri: string;
@@ -183,4 +184,15 @@ export type SummarizeDocsOutput = {
   topics: Record<string, { present: boolean; sources: string[] }>;
   stats: { mdFiles: number; docFiles: number };
   status: { hasDocs: boolean; notes: string[] };
+};
+
+
+export type SummarizeSecurityOutput = {
+  libs: { security: string[]; auth: string[]; crypto: string[]; scanners: string[] };
+  env: { files: string[]; examples: string[]; gitignoreProtectsEnv: boolean };
+  sensitiveFiles: string[]; // pem/keys/p12/jks/service accounts
+  secretMatches: SecretHit[]; // redacted counts only
+  policies: { corsWildcard: string[]; debugTrue: string[] };
+  ciSecurity: string[]; // codeql, gitleaks, semgrep, snyk
+  status: { riskScore: number; notes: string[] };
 };
