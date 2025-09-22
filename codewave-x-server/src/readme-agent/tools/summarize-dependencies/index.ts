@@ -1,4 +1,4 @@
-import { SummarizeDepsInput, SummarizeDepsOutput } from '../../types/io.type';
+import { SummarizeDepsInput, SummarizeDepsOutput } from '../../types/tools/io.type';
 import {
   fromPackageJson,
   fromCargoToml,
@@ -12,7 +12,7 @@ import {
   parseJson,
   pushUnique,
   toPosix,
-} from './summarizeHelpers';
+} from './helpers';
 
 export const summarizeDependencies = async (
   input: SummarizeDepsInput,
@@ -73,3 +73,5 @@ export const summarizeDependencies = async (
 
   return { runtime, dev, tools, pkgManagers, scripts, notes };
 };
+
+export default summarizeDependencies;

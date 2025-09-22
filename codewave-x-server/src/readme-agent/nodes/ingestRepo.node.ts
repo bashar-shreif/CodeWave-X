@@ -1,26 +1,14 @@
 import path from 'path';
-import fs from 'fs/promises';
 import type { GraphState } from '../agent/state';
-import type { ListFilesInput } from '../types/tools/io.type';
-import { listFiles } from '../tools/list-files';
+import { listFiles } from '../tools/list-files'; // adjust if needed
 
 export const ingestRepoNode = async (
   state: GraphState,
 ): Promise<GraphState> => {
-  const repoRoot = state.repoRoot;
+  const { repoRoot } = state;
   if (!repoRoot) throw new Error('IngestRepo: repoRoot is required');
+  const repoUri = path.resolve(repoRoot);
 
-  try {
-    const st = await fs.stat(repoRoot);
-    if (!st.isDirectory()) throw new Error();
-  } catch {
-    throw new Error(
-      `IngestRepo: repoRoot not found or not a directory -> ${path.resolve(repoRoot)}`,
-    );
-  }
-
-  const { manifest, repoHash } = await listFiles(
-    repoRoot as unknown as ListFilesInput,
-  );
+  const { manifest, repoHash } = await listFiles({ repoUri });
   return { ...state, manifest, repoHash };
 };
