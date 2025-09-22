@@ -51,7 +51,6 @@ export const summarizeCI = async (
   }
 
   // Jenkins
-  // Scan for Jenkinsfile at root or near root
   const jenkins = files.filter((f) => /(^|\/)Jenkinsfile$/.test(f));
   for (const p of jenkins) ciFiles.push({ provider: 'Jenkins', path: p });
 
@@ -81,11 +80,12 @@ export const summarizeCI = async (
     });
 
     // secrets
-    const secMatches = txt.match(/\bsecrets\.([A-Z0-9_]+)/g) || [];
-    secMatches.forEach((m) => secrets.add(m.split('.')[1]));
+    const secMatches = (txt.match(/\bsecrets\.([A-Z0-9_]+)/g) || []) as string[];
+    secMatches.forEach((m: string) => secrets.add(m.split('.')[1]));
+
     const envSecretMatches =
-      txt.match(/\$\{?\{?\s*secrets\.([A-Z0-9_]+)\s*\}?\}?/gi) || [];
-    envSecretMatches.forEach((m) => {
+      (txt.match(/\$\{?\{?\s*secrets\.([A-Z0-9_]+)\s*\}?\}?/gi) || []) as string[];
+    envSecretMatches.forEach((m: string) => {
       const mm = m.match(/secrets\.([A-Z0-9_]+)/i);
       if (mm) secrets.add(mm[1].toUpperCase());
     });
@@ -94,30 +94,21 @@ export const summarizeCI = async (
 
     // caching
     if (/actions\/cache@/i.test(txt)) caching.add('GitHub Actions cache');
-    if (
-      /\bcache:\s*(paths|key|policy)/i.test(txt) &&
-      cf.provider === 'GitLab CI'
-    )
+    if (/\bcache:\s*(paths|key|policy)/i.test(txt) && cf.provider === 'GitLab CI')
       caching.add('GitLab cache');
-    if (
-      /\b(save_cache|restore_cache)\b/.test(txt) &&
-      cf.provider === 'CircleCI'
-    )
+    if (/\b(save_cache|restore_cache)\b/.test(txt) && cf.provider === 'CircleCI')
       caching.add('CircleCI cache');
     if (/\b(npm cache|pnpm store|yarn cache)/i.test(txt))
       caching.add('Package manager cache');
 
     // language versions (aggregate)
-    const pushVers = (target: Set<string>, rx: RegExp, label: string) => {
-      (txt.match(new RegExp(rx.source, rx.flags + 'g')) || []).forEach(
-        (line) => {
-          const v = line
-            .split(':')[1]
-            ?.trim()
-            .replace(/^["']|["']$/g, '');
-          if (v) target.add(v);
-        },
-      );
+    const pushVers = (target: Set<string>, rx: RegExp, _label: string) => {
+      const flags = rx.flags.includes('g') ? rx.flags : rx.flags + 'g';
+      const lines = (txt.match(new RegExp(rx.source, flags)) || []) as string[];
+      lines.forEach((line: string) => {
+        const v = line.split(':')[1]?.trim().replace(/^["']|["']$/g, '');
+        if (v) target.add(v);
+      });
     };
     pushVers(langs.node, /\bnode-version:\s*["']?[^"'\n]+/i, 'node');
     pushVers(langs.python, /\bpython-version:\s*["']?[^"'\n]+/i, 'python');
@@ -127,17 +118,18 @@ export const summarizeCI = async (
     pushVers(langs.dotnet, /\bdotnet-version:\s*["']?[^"'\n]+/i, 'dotnet');
     pushVers(langs.ruby, /\bruby-version:\s*["']?[^"'\n]+/i, 'ruby');
 
-    // also matrix arrays like [18.x, 20.x]
-    (
-      txt.match(/\b(node|python|php|java|go|ruby)-version:\s*\[([^\]]+)\]/gi) ||
-      []
-    ).forEach((m) => {
+    // matrix arrays like [18.x, 20.x]
+    const versionListMatches =
+      (txt.match(/\b(node|python|php|java|go|ruby)-version:\s*\[([^\]]+)\]/gi) ||
+        []) as string[];
+    versionListMatches.forEach((m: string) => {
       const mm = m.match(/\b([A-Za-z]+)-version:\s*\[([^\]]+)\]/i);
       if (!mm) return;
       const lang = mm[1].toLowerCase();
       const vals = mm[2]
         .split(',')
-        .map((s) => s.trim().replace(/^["']|["']$/g, ''));
+        .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean);
       for (const v of vals) {
         if (lang === 'node') langs.node.add(v);
         if (lang === 'python') langs.python.add(v);
