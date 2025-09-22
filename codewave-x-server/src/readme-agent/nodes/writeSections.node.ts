@@ -1,26 +1,24 @@
-import type { GraphState } from '../agent/state';
-import { writeSectionsAgent } from '../agent/writeSections.agent';
+import type { GraphState } from "../agent/state";
+import { writeSectionsAgent } from "../agent/writeSections.agent";
 
-export const writeSectionsNode = async (
-  state: GraphState,
-): Promise<GraphState> => {
+export const writeSectionsNode = async (s: GraphState): Promise<Partial<GraphState>> => {
   const out = await writeSectionsAgent({
-    repoRoot: state.repoRoot,
-    repoHash: state.repoHash,
-    manifest: state.manifest,
-    langProfile: state.langProfile,
-    stack: state.stack,
-    deps: state.deps,
-    routes: state.routes,
-    architecture: state.architecture,
-    tests: state.tests,
-    config: state.config,
-    ci: state.ci,
-    docs: state.docs,
-    security: state.security,
+    repoRoot: s.repoRoot,
+    repoHash: s.repoHash,
+    manifest: s.manifest,
+    langProfile: s.langProfile,
+    stack: s.stack,
+    deps: s.deps,
+    routes: s.routes,
+    architecture: s.architecture,
+    tests: s.tests,
+    config: s.config,
+    ci: s.ci,
+    docs: s.docs,
+    security: s.security,
+    descriptionHint: (s as any).descriptionHint,
+    projectName: (s as any).projectName,
   });
-  return {
-    ...state,
-    draft: { sections: out.sections, decisions: out.decisions } as any,
-  };
+
+  return { draft: { sections: out.sections, decisions: out.decisions } as any };
 };

@@ -18,6 +18,9 @@ export const compileReadmeGraph = () => {
   const g = new StateGraph(Channels);
 
   g.addNode('Routes', routesNode);
+  g.addNode('Deps', depsNode);
+  g.addNode('IngestRepo', ingestRepoNode);
+  g.addNode('Scan', scanNode);
   g.addNode('Architecture', architectureNode);
   g.addNode('Tests', testsNode);
   g.addNode('Config', configNode);
@@ -28,6 +31,9 @@ export const compileReadmeGraph = () => {
   g.addNode('WriteSections', writeSectionsNode);
   g.addNode('Finalize', finalizeNode);
 
+  (g as any).addEdge(START, 'IngestRepo');
+  (g as any).addEdge('IngestRepo', 'Scan');
+  (g as any).addEdge('Scan', 'Deps');
   (g as any).addEdge('Deps', 'Routes');
   (g as any).addEdge('Routes', 'Architecture');
 
@@ -45,7 +51,6 @@ export const compileReadmeGraph = () => {
 
   (g as any).addEdge('MergeSignals', 'WriteSections');
   (g as any).addEdge('WriteSections', 'Finalize');
-
   (g as any).addEdge('Finalize', END);
 
   return g.compile();

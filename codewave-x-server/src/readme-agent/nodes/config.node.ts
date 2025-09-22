@@ -1,10 +1,9 @@
 import type { GraphState } from '../agent/state';
 import { summarizeConfig } from '../tools/summarize-config';
 
-export const configNode = async (state: GraphState): Promise<GraphState> => {
-  const { repoRoot } = state;
-  if (!repoRoot) throw new Error('Config: repoRoot is required');
-
-  const config = await summarizeConfig(repoRoot);
-  return { ...state, config };
+export const configNode = async (
+  s: GraphState,
+): Promise<Partial<GraphState>> => {
+  const config = await summarizeConfig(s.repoRoot);
+  return { config };
 };

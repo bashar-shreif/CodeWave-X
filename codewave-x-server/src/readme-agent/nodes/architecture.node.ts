@@ -2,18 +2,14 @@ import type { GraphState } from '../agent/state';
 import { summarizeArchitecture } from '../tools/summarize-architecture';
 
 export const architectureNode = async (
-  state: GraphState,
-): Promise<GraphState> => {
-  const { repoRoot, manifest, stack, langProfile, deps } = state;
-  if (!repoRoot) throw new Error('Architecture: repoRoot is required');
-
+  s: GraphState,
+): Promise<Partial<GraphState>> => {
   const architecture = await summarizeArchitecture({
-    repoRoot,
-    manifest,
-    stack,
-    langProfile,
-    deps,
+    repoRoot: s.repoRoot,
+    manifest: s.manifest,
+    stack: s.stack,
+    langProfile: s.langProfile,
+    deps: s.deps,
   });
-
-  return { ...state, architecture };
+  return { architecture };
 };

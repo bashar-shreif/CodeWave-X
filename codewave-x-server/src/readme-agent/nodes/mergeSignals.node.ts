@@ -6,7 +6,7 @@ const uniq = <T = any>(a: T[]) => Array.from(new Set(a.filter(Boolean)));
 
 export const mergeSignalsNode = async (
   state: GraphState,
-): Promise<GraphState> => {
+): Promise<Partial<GraphState>> => {
   const routesIn: any = state.routes || {};
   const testsIn: any = state.tests || {};
   const ciIn: any = state.ci || {};
@@ -14,7 +14,6 @@ export const mergeSignalsNode = async (
   const secIn: any = state.security || {};
   const cfgIn: any = state.config || {};
 
-  // Routes
   const routeItems = arr<any>(routesIn.routes ?? routesIn.items).map((r) => {
     if (typeof r === 'string') return { method: '', path: r };
     return {
@@ -32,7 +31,6 @@ export const mergeSignalsNode = async (
       typeof routesIn.count === 'number' ? routesIn.count : routeItems.length,
   };
 
-  // Tests
   const frameworks = uniq(arr<string>(testsIn.frameworks));
   const coverage = testsIn.coverage
     ? {
@@ -63,7 +61,6 @@ export const mergeSignalsNode = async (
     locations: { ...(testsIn.locations || {}), testFiles },
   };
 
-  // CI
   const ciProviders = uniq(arr<string>(ciIn.providers));
   const ciFiles = uniq(arr<string>(ciIn.files));
   const ci = {
@@ -76,7 +73,6 @@ export const mergeSignalsNode = async (
     },
   };
 
-  // Docs
   const topics =
     typeof docsIn.topics === 'object' && docsIn.topics ? docsIn.topics : {};
   const index = {
@@ -88,7 +84,6 @@ export const mergeSignalsNode = async (
   };
   const docs = { ...docsIn, index, topics };
 
-  // Security
   const sec = {
     ...secIn,
     status: {
@@ -109,7 +104,6 @@ export const mergeSignalsNode = async (
     sensitiveFiles: uniq(arr<string>(secIn.sensitiveFiles)),
   };
 
-  // Config
   const config = {
     ...cfgIn,
     bundlers: uniq(arr<string>(cfgIn.bundlers)),
@@ -127,5 +121,5 @@ export const mergeSignalsNode = async (
       : undefined,
   };
 
-  return { ...state, routes, tests, ci, docs, security: sec, config };
+  return { routes, tests, ci, docs, security: sec, config };
 };
