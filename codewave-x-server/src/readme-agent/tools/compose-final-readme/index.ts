@@ -6,11 +6,11 @@ import {
   mapSections,
   orderSections,
   dedupeLines,
-} from './composeHelpers';
+} from './helpers';
 import {
   ComposeFinalReadmeInput,
   ComposeFinalReadmeOutput,
-} from 'src/readme-agent/types/io.type';
+} from 'src/readme-agent/types/tools/io.type';
 
 export const composeFinalReadme = async (
   input: ComposeFinalReadmeInput,

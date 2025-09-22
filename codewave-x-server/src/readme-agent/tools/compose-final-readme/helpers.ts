@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { Draft } from '../../types/draft.type';
+import { Draft } from '../../types/tools/draft.type';
 
 export const pathExists = async (p: string) => {
   try {

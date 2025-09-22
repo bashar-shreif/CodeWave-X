@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { CIWorkflow } from 'src/readme-agent/types/ciWorkflow.type';
+import { CIWorkflow } from 'src/readme-agent/types/tools/ciWorkflow.type';
 
 export const readText = async (p: string) => {
   try {

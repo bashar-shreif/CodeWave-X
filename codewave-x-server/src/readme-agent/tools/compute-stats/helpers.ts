@@ -1,5 +1,5 @@
 import { EXT_TO_LANG } from '../../constants/languageExts.constant';
-import { StatBlock } from '../../types/statBlock.type';
+import { StatBlock } from '../../types/tools/statBlock.type';
 
 export const langFor = (relPath: string): string | null => {
   const base = relPath.replace(/\\/g, '/').split('/').pop() || '';

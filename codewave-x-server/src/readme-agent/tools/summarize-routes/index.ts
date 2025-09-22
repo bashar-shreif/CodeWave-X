@@ -1,10 +1,10 @@
 import * as path from 'node:path';
 import { detectStack } from '../detect-stacks';
-import type { RouteEntry } from '../../types/routeEntry.type';
+import type { RouteEntry } from '../../types/tools/routeEntry.type';
 import type {
   SummarizeRoutesInput,
   SummarizeRoutesOutput,
-} from '../../types/io.type';
+} from '../../types/tools/io.type';
 import {
   parseDjangoRoutes,
   parseExpressRoutes,
@@ -13,7 +13,7 @@ import {
   parseNestRoutes,
   readFileUtf8,
   toPosix,
-} from './routesHelpers';
+} from './helpers';
 
 export const summarizeRoutes = async (
   input: SummarizeRoutesInput,
@@ -82,3 +82,5 @@ export const summarizeRoutes = async (
   );
   return { routes, frameworksDetected: Array.from(fwSet).sort() };
 };
+
+export default summarizeRoutes;

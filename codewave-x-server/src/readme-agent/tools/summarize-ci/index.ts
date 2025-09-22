@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { CIWorkflow } from '../../types/ciWorkflow.type';
-import { pathExists, readText, rel, walk, analyzeYamlText } from './ciHelpers';
-import { SummarizeCIOutput } from '../../types/io.type';
+import { CIWorkflow } from '../../types/tools/ciWorkflow.type';
+import { pathExists, readText, rel, walk, analyzeYamlText } from './helpers';
+import { SummarizeCIOutput } from '../../types/tools/io.type';
 
 export const summarizeCI = async (
   repoRoot: string,

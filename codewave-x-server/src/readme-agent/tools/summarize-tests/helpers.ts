@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { CoverageSummary } from 'src/readme-agent/types/coverageSummary.type';
+import { CoverageSummary } from '../../types/tools/coverageSummary.type';
 
 export const readJson = async <T = any>(p: string): Promise<T | null> => {
   try {

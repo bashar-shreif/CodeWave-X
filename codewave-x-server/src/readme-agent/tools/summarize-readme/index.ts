@@ -1,7 +1,7 @@
 import {
   SummarizeReadmeInput,
   SummarizeReadmeOutput,
-} from '../../types/io.type';
+} from '../../types/tools/io.type';
 import {
   deriveName,
   mkArchitecture,
@@ -16,7 +16,7 @@ import {
   mkTesting,
   pickPkgMgr,
   assemble,
-} from './readmeHelpers';
+} from './helpers';
 
 export const summarizeReadme = async (
   input: SummarizeReadmeInput,
@@ -54,3 +54,5 @@ export const summarizeReadme = async (
     markdown: asm.markdown,
   };
 };
+
+export default summarizeReadme;

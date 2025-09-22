@@ -1,15 +1,15 @@
-import { Component } from 'src/readme-agent/types/component.type';
+import { Component } from 'src/readme-agent/types/tools/component.type';
 import {
   SummarizeArchitectureInput,
   SummarizeArchitectureOutput,
-} from 'src/readme-agent/types/io.type';
+} from 'src/readme-agent/types/tools/io.type';
 import {
   toPosix,
   has,
   anyStartsWith,
   readIfExists,
   scoreToConfidence,
-} from './architectureHelpers';
+} from './helpers';
 
 export const summarizeArchitecture = async (
   input: SummarizeArchitectureInput,

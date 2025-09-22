@@ -1,5 +1,5 @@
 import path from 'path';
-import { SummarizeTestsOutput } from 'src/readme-agent/types/io.type';
+import { SummarizeTestsOutput } from 'src/readme-agent/types/tools/io.type';
 import {
   walk,
   detectByFiles,
@@ -8,7 +8,7 @@ import {
   parseCoverageSummaryJson,
   parseJUnit,
   parseLcov,
-} from './testsHelpers';
+} from './helpers';
 
 export const summarizeTests = async (
   repoRoot: string,
@@ -83,3 +83,5 @@ export const summarizeTests = async (
     },
   };
 };
+
+export default summarizeTests;

@@ -1,8 +1,18 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { SecretHit } from '../../types/secureHit.type';
-import { SummarizeSecurityOutput } from '../../types/io.type';
-import { walk, pathExists, readText, rel, isTextCandidate, detectCorsWildcard, detectDebugTrue, SECRET_PATTERNS, collectDeps } from './securityHelpers';
+import { SecretHit } from '../../types/tools/secureHit.type';
+import { SummarizeSecurityOutput } from '../../types/tools/io.type';
+import {
+  walk,
+  pathExists,
+  readText,
+  rel,
+  isTextCandidate,
+  detectCorsWildcard,
+  detectDebugTrue,
+  SECRET_PATTERNS,
+  collectDeps,
+} from './helpers';
 
 export const summarizeSecurity = async (
   repoRoot: string,
@@ -168,3 +178,5 @@ export const summarizeSecurity = async (
     status: { riskScore: score, notes },
   };
 };
+
+export default summarizeSecurity;

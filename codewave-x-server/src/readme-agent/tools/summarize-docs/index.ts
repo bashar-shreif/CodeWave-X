@@ -1,6 +1,6 @@
 import path from 'path';
-import { DocItem } from 'src/readme-agent/types/docItem.type';
-import { SummarizeDocsOutput } from 'src/readme-agent/types/io.type';
+import { DocItem } from 'src/readme-agent/types/tools/docItem.type';
+import { SummarizeDocsOutput } from 'src/readme-agent/types/tools/io.type';
 import {
   walk,
   parseOpenApi,
@@ -13,7 +13,7 @@ import {
   extractSummary,
   extractTitle,
   detectTopicHits,
-} from './docsHelpers';
+} from './helpers';
 
 export const summarizeDocs = async (
   repoRoot: string,
@@ -231,3 +231,5 @@ export const summarizeDocs = async (
     status: { hasDocs: docFiles > 0, notes },
   };
 };
+
+export default summarizeDocs;

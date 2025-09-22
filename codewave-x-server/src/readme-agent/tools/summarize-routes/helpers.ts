@@ -1,5 +1,5 @@
 import * as fsp from "node:fs/promises";
-import type { RouteEntry } from "../../types/routeEntry.type";
+import type { RouteEntry } from "../../types/tools/routeEntry.type";
 
 export const toPosix = (p: string) => p.replace(/\\/g, "/");
 

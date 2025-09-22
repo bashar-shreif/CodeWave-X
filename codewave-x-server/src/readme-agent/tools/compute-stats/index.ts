@@ -3,9 +3,9 @@ import * as path from 'node:path';
 import type {
   ComputeStatsInput,
   ComputeStatsOutput,
-} from '../../types/io.type';
-import { StatBlock } from '../../types/statBlock.type';
-import { analyzeByLang, add, emptyBlock, langFor } from './computeHelpers';
+} from '../../types/tools/io.type';
+import { StatBlock } from '../../types/tools/statBlock.type';
+import { analyzeByLang, add, emptyBlock, langFor } from './helpers';
 
 export const computeStats = async (
   input: ComputeStatsInput,
