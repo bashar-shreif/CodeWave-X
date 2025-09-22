@@ -186,13 +186,41 @@ export type SummarizeDocsOutput = {
   status: { hasDocs: boolean; notes: string[] };
 };
 
-
 export type SummarizeSecurityOutput = {
-  libs: { security: string[]; auth: string[]; crypto: string[]; scanners: string[] };
+  libs: {
+    security: string[];
+    auth: string[];
+    crypto: string[];
+    scanners: string[];
+  };
   env: { files: string[]; examples: string[]; gitignoreProtectsEnv: boolean };
   sensitiveFiles: string[]; // pem/keys/p12/jks/service accounts
   secretMatches: SecretHit[]; // redacted counts only
   policies: { corsWildcard: string[]; debugTrue: string[] };
   ciSecurity: string[]; // codeql, gitleaks, semgrep, snyk
   status: { riskScore: number; notes: string[] };
+};
+
+export type SummarizeReadmeInput = {
+  repoRoot: string;
+  projectName?: string;
+  descriptionHint?: string;
+  manifest?: any;
+  langProfile?: any;
+  stack?: any;
+  deps?: any;
+  routes?: any;
+  architecture?: any;
+  tests?: any;
+  config?: any;
+  ci?: any;
+  docs?: any;
+  security?: any;
+};
+
+export type SummarizeReadmeOutput = {
+  title: string;
+  outline: string[];
+  sections: Record<string, string>;
+  markdown: string;
 };
