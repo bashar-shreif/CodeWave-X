@@ -1,4 +1,3 @@
-// src/readme-agent/nodes/scan.node.ts
 import type { GraphState } from '../agent/state';
 import { scanLanguages } from '../tools/scan-languages';
 import { detectStack } from '../tools/detect-stacks';

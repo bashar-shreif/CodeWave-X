@@ -12,13 +12,11 @@ import { docsNode } from '../nodes/docs.node';
 import { securityNode } from '../nodes/security.node';
 import { mergeSignalsNode } from '../nodes/mergeSignals.node';
 import { writeSectionsNode } from '../nodes/writeSections.node';
+import { finalizeNode } from '../nodes/finalize.node';
 
 export const compileReadmeGraph = () => {
   const g = new StateGraph(Channels);
 
-  g.addNode('IngestRepo', ingestRepoNode);
-  g.addNode('Scan', scanNode);
-  g.addNode('Deps', depsNode);
   g.addNode('Routes', routesNode);
   g.addNode('Architecture', architectureNode);
   g.addNode('Tests', testsNode);
@@ -28,20 +26,27 @@ export const compileReadmeGraph = () => {
   g.addNode('Security', securityNode);
   g.addNode('MergeSignals', mergeSignalsNode);
   g.addNode('WriteSections', writeSectionsNode);
+  g.addNode('Finalize', finalizeNode);
 
-  (g as any).addEdge(START, 'IngestRepo');
-  (g as any).addEdge('IngestRepo', 'Scan');
-  (g as any).addEdge('Scan', 'Deps');
   (g as any).addEdge('Deps', 'Routes');
   (g as any).addEdge('Routes', 'Architecture');
+
   (g as any).addEdge('Architecture', 'Tests');
-  (g as any).addEdge('Tests', 'Config');
-  (g as any).addEdge('Config', 'CI');
-  (g as any).addEdge('CI', 'Docs');
-  (g as any).addEdge('Docs', 'Security');
+  (g as any).addEdge('Architecture', 'Config');
+  (g as any).addEdge('Architecture', 'CI');
+  (g as any).addEdge('Architecture', 'Docs');
+  (g as any).addEdge('Architecture', 'Security');
+
+  (g as any).addEdge('Tests', 'MergeSignals');
+  (g as any).addEdge('Config', 'MergeSignals');
+  (g as any).addEdge('CI', 'MergeSignals');
+  (g as any).addEdge('Docs', 'MergeSignals');
   (g as any).addEdge('Security', 'MergeSignals');
+
   (g as any).addEdge('MergeSignals', 'WriteSections');
-  (g as any).addEdge('WriteSections', END);
+  (g as any).addEdge('WriteSections', 'Finalize');
+
+  (g as any).addEdge('Finalize', END);
 
   return g.compile();
 };
