@@ -4,11 +4,25 @@ import { composeFinalReadme } from '../tools/compose-final-readme';
 export const finalizeNode = async (
   s: GraphState,
 ): Promise<Partial<GraphState>> => {
-  const final = await composeFinalReadme({
+  const sectionsMap: Record<string, string> = Array.isArray(s.draft?.sections)
+    ? Object.fromEntries(
+        (
+          s.draft!.sections as Array<{
+            id?: string;
+            title?: string;
+            body?: string;
+          }>
+        ).map((x, i) => [
+          x.id || x.title || `section_${i + 1}`,
+          String(x.body ?? ''),
+        ]),
+      )
+    : (s.draft?.sections as Record<string, string>) || {};
+
+  const out = await composeFinalReadme({
     repoRoot: s.repoRoot,
-    draft: { title: '', sections: s.draft?.sections || {} },
-    preferBadges: (s as any).draft?.decisions?.preferBadges ?? true,
-    addTOC: (s as any).draft?.decisions?.addTOC ?? true,
+    draft: { title: s.draft?.title ?? '', sections: sectionsMap },
   });
-  return { final };
+
+  return { final: { markdown: out.markdown } } as any;
 };
