@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { detectStack } from '../detect-stacks/detectStack.tool';
+import { detectStack } from '../detect-stacks';
 import type { RouteEntry } from '../../types/routeEntry.type';
 import type {
   SummarizeRoutesInput,

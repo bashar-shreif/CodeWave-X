@@ -1,6 +1,6 @@
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
-import type { DetectStackInput, DetectStackOutput } from '../../types/io.type';
+import type { DetectStackInput, DetectStackOutput } from '../../types/tools/io.type';
 import {
   detectAngular,
   detectAspNet,
@@ -13,8 +13,8 @@ import {
   detectNode,
   detectReact,
   detectVue,
-} from './detectHelpers';
-import type { StackHit } from '../../types/stackHit.type';
+} from './helpers';
+import type { StackHit } from '../../types/tools/stackHit.type';
 
 const toPosix = (p: string) => p.replace(/\\/g, '/');
 
@@ -188,3 +188,5 @@ export const detectStack = async (
   tieBroken.sort((a, b) => b.score - a.score || a.stack.localeCompare(b.stack));
   return { hits: tieBroken };
 };
+
+export default detectStack;
