@@ -13,6 +13,7 @@ import { securityNode } from '../nodes/security.node';
 import { mergeSignalsNode } from '../nodes/mergeSignals.node';
 import { writeSectionsNode } from '../nodes/writeSections.node';
 import { finalizeNode } from '../nodes/finalize.node';
+import { emitArtifactsNode } from '../nodes/emitArtifacts.node';
 
 export const compileReadmeGraph = () => {
   const g = new StateGraph(Channels);
@@ -30,6 +31,7 @@ export const compileReadmeGraph = () => {
   g.addNode('MergeSignals', mergeSignalsNode);
   g.addNode('WriteSections', writeSectionsNode);
   g.addNode('Finalize', finalizeNode);
+  g.addNode('EmitArtifacts', emitArtifactsNode);
 
   (g as any).addEdge(START, 'IngestRepo');
   (g as any).addEdge('IngestRepo', 'Scan');
@@ -51,7 +53,8 @@ export const compileReadmeGraph = () => {
 
   (g as any).addEdge('MergeSignals', 'WriteSections');
   (g as any).addEdge('WriteSections', 'Finalize');
-  (g as any).addEdge('Finalize', END);
+  (g as any).addEdge('Finalize', 'EmitArtifacts');
+  (g as any).addEdge('EmitArtifacts', END);
 
   return g.compile();
 };

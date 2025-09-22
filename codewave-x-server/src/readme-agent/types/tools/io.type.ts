@@ -228,14 +228,18 @@ export type SummarizeReadmeOutput = {
 
 export type ComposeFinalReadmeInput = {
   repoRoot: string;
-  draft: Draft;
+  draft: { title?: string; sections: Record<string, string> };
   preferBadges?: boolean;
   addTOC?: boolean;
 };
 
 export type ComposeFinalReadmeOutput = {
-  title: string;
-  outline: string[];
-  sections: Record<string, string>;
   markdown: string;
+  title: string;
+  sectionsOrder: string[];
+  meta: {
+    inferredTitle?: string | null;
+    license?: string | null;
+    badges: string[];
+  };
 };

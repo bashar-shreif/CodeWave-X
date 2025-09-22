@@ -1,12 +1,4 @@
-import {
-  pickPkgMeta,
-  clean,
-  makeBadges,
-  makeTOC,
-  mapSections,
-  orderSections,
-  dedupeLines,
-} from './helpers';
+import { inferTitle, pickLicense, renderSections, renderTOC } from './helpers';
 import {
   ComposeFinalReadmeInput,
   ComposeFinalReadmeOutput,
@@ -15,43 +7,38 @@ import {
 export const composeFinalReadme = async (
   input: ComposeFinalReadmeInput,
 ): Promise<ComposeFinalReadmeOutput> => {
-  const meta = await pickPkgMeta(input.repoRoot);
-  const title = clean(input.draft.title || meta.name || 'Project');
-  const sections = mapSections(input.draft);
+  const { repoRoot, draft, preferBadges = false, addTOC = true } = input;
 
-  if (input.preferBadges) {
-    const badges = makeBadges(meta);
-    if (badges) sections['Badges'] = badges;
-  }
+  const inferred = await inferTitle(repoRoot);
+  const title = (draft.title?.trim() || inferred.title || 'Project').replace(
+    /^#+\s*/,
+    '',
+  );
+  const licenseFile = await pickLicense(repoRoot);
 
-  const outline = orderSections(sections);
-  if (input.addTOC && outline.length > 2) {
-    const toc = makeTOC(outline);
-    if (toc) sections['Table of Contents'] = toc;
-  }
-
-  const ordered = orderSections(sections);
-  const parts: string[] = [];
-  parts.push(`# ${title}`);
-  if (sections['Badges']) {
-    parts.push(`\n${sections['Badges']}\n`);
-  }
-  if (sections['Table of Contents']) {
-    parts.push(`\n## Table of Contents\n${sections['Table of Contents']}`);
-  }
-  for (const key of ordered) {
-    if (key === 'Badges' || key === 'Table of Contents') continue;
-    parts.push(`\n## ${key}\n\n${sections[key]}`);
+  const badges: string[] = [];
+  if (preferBadges && licenseFile) {
+    badges.push(
+      `[![License](https://img.shields.io/badge/license-${encodeURIComponent('LICENSE')}-informational)](#license)`,
+    );
   }
 
-  const markdown = dedupeLines(
-    parts.join('\n').replace(/\n{3,}/g, '\n\n'),
-  ).trim();
+  const toc = addTOC ? renderTOC(draft.sections) : '';
+  const { md: body, order } = renderSections(draft.sections);
+
+  const headerLines = [`# ${title}`];
+  if (badges.length) headerLines.push(badges.join(' '));
+
+  const markdown =
+    [headerLines.join('\n'), '', toc, body]
+      .filter(Boolean)
+      .join('\n')
+      .replace(/\s+$/s, '') + '\n';
 
   return {
-    title,
-    outline: ordered,
-    sections,
     markdown,
+    title,
+    sectionsOrder: order,
+    meta: { inferredTitle: inferred.title, license: licenseFile, badges },
   };
 };
