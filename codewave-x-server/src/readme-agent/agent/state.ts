@@ -4,7 +4,6 @@ export type GraphState = {
   repo: { root: string; hash?: string };
   flags?: { useLLM?: boolean };
 
-  // legacy flat keys (required so nodes can pass to tool IO types)
   repoRoot: string;
   repoHash: string;
 
@@ -22,21 +21,34 @@ export type GraphState = {
 
   decisions?: any;
 
-  writer?: { sections?: Array<{ id: string; title: string; body: string }>; markdown?: string };
-  draft?: { title?: string; sections?: Record<string, any> | Array<{ id: string; title: string; body: string }> };
+  writer?: {
+    sections?: Array<{ id: string; title: string; body: string }>;
+    markdown?: string;
+  };
+  draft?: {
+    title?: string;
+    sections?:
+      | Record<string, any>
+      | Array<{ id: string; title: string; body: string }>;
+  };
   final?: { markdown: string };
 
   outputs?: any;
-  meta?: any;
   input?: { repoRoot?: string };
-
+  __runSubgraph?: (root: string) => Promise<any>;
+  meta?: any & { isSubgraph?: boolean };
   __progress?: (kind: 'node_start' | 'node_end', node: string) => void;
 };
 
-const merge = <T extends object>(a: T | undefined, b: T | undefined): T => ({ ...(a as any), ...(b as any) });
+const merge = <T extends object>(a: T | undefined, b: T | undefined): T => ({
+  ...(a as any),
+  ...(b as any),
+});
 
 export const Channels = Annotation.Root({
-  repo: Annotation<{ root: string; hash?: string }>({ reducer: (a, b) => merge(a, b) }),
+  repo: Annotation<{ root: string; hash?: string }>({
+    reducer: (a, b) => merge(a, b),
+  }),
   flags: Annotation<{ useLLM?: boolean }>({ reducer: (a, b) => merge(a, b) }),
 
   repoRoot: Annotation<string>({ reducer: (_a, b) => b }),
@@ -64,10 +76,14 @@ export const Channels = Annotation.Root({
     },
   }),
 
-  draft: Annotation<{ title?: string; sections?: any }>({ reducer: (a, b) => merge(a, b) }),
+  draft: Annotation<{ title?: string; sections?: any }>({
+    reducer: (a, b) => merge(a, b),
+  }),
   final: Annotation<{ markdown: string }>({ reducer: (_a, b) => b }),
 
   outputs: Annotation<any>({ reducer: (a, b) => merge(a, b) }),
   meta: Annotation<any>({ reducer: (a, b) => merge(a, b) }),
   input: Annotation<{ repoRoot?: string }>({ reducer: (a, b) => merge(a, b) }),
+
+  __runSubgraph: Annotation<any>({ reducer: (_a, b) => b }),
 });

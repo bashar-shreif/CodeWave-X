@@ -31,9 +31,9 @@ export const compileReadmeGraph = () => {
   g.addNode('Security', securityNode);
   g.addNode('MergeSignals', mergeSignalsNode);
   g.addNode('WriteSections', writeSectionsNode);
+  g.addNode('AggregateSubprojects', aggregateSubprojectsNode);
   g.addNode('Finalize', finalizeNode);
   g.addNode('EmitArtifacts', emitArtifactsNode);
-  g.addNode('AggregateSubprojects', aggregateSubprojectsNode);
 
   (g as any).addEdge(START, 'IngestRepo');
   (g as any).addEdge('IngestRepo', 'Scan');
@@ -53,9 +53,10 @@ export const compileReadmeGraph = () => {
   (g as any).addEdge('Docs', 'MergeSignals');
   (g as any).addEdge('Security', 'MergeSignals');
 
-  (g as any).addEdge('MergeSignals', 'AggregateSubprojects');
-  (g as any).addEdge('AggregateSubprojects', 'WriteSections');
-  (g as any).addEdge('WriteSections', 'Finalize');
+  (g as any).addEdge('MergeSignals', 'WriteSections');
+  (g as any).addEdge('WriteSections', 'AggregateSubprojects');
+  (g as any).addEdge('AggregateSubprojects', 'Finalize');
+
   (g as any).addEdge('Finalize', 'EmitArtifacts');
   (g as any).addEdge('EmitArtifacts', END);
 

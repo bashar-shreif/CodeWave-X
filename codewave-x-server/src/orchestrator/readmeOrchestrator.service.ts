@@ -187,10 +187,26 @@ export class ReadmeOrchestratorService {
           flags: { useLLM: !!useLLM },
           outputs: {},
           input: { repoRoot: abs },
-          __progress: (k: 'node_start' | 'node_end', n: string) =>
+          __progress: (k, n) =>
             k === 'node_start'
               ? callbacks.onNodeStart(n)
               : callbacks.onNodeEnd(n),
+
+          // subgraph runner
+          __runSubgraph: async (subRoot: string) => {
+            const { repoHash: subHash, abs: subAbs } =
+              this.computeRepoHash(subRoot);
+            const subInit: Partial<GraphState> = {
+              repo: { root: subAbs, hash: subHash },
+              repoRoot: subAbs,
+              repoHash: subHash,
+              flags: { useLLM: false },
+              meta: { isSubgraph: true },
+            } as any;
+            return await this.compiled.invoke(subInit, {
+              configurable: { mode },
+            } as any);
+          },
         } as any;
 
         const finalState: any = await graph.invoke(initial, {
