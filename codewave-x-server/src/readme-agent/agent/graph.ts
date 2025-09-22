@@ -9,6 +9,7 @@ import { testsNode } from '../nodes/tests.node';
 import { configNode } from '../nodes/config.node';
 import { ciNode } from '../nodes/ci.node';
 import { docsNode } from '../nodes/docs.node';
+import { securityNode } from '../nodes/security.node';
 
 export const compileReadmeGraph = () => {
   const g = new StateGraph(Channels);
@@ -22,6 +23,7 @@ export const compileReadmeGraph = () => {
   g.addNode('Config', configNode);
   g.addNode('CI', ciNode);
   g.addNode('Docs', docsNode);
+  g.addNode('Security', securityNode);
 
   (g as any).addEdge(START, 'IngestRepo');
   (g as any).addEdge('IngestRepo', 'Scan');
@@ -32,6 +34,7 @@ export const compileReadmeGraph = () => {
   (g as any).addEdge('Tests', 'Config');
   (g as any).addEdge('Config', 'CI');
   (g as any).addEdge('CI', 'Docs');
-  (g as any).addEdge('Docs', END);
+  (g as any).addEdge('Docs', 'Security');
+  (g as any).addEdge('Security', END);
   return g.compile();
 };
