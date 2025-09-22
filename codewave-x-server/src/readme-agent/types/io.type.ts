@@ -4,6 +4,7 @@ import { StatBlock } from './statBlock.type';
 import { RouteEntry } from './routeEntry.type';
 import { Component } from './component.type';
 import { LangProfile } from './langProfile.type';
+import { CIWorkflow } from './ciWorkflow.type';
 
 export type ListFilesInput = {
   repoUri: string;
@@ -143,4 +144,22 @@ export type SummarizeConfigOutput = {
   };
   configsFound: string[]; // relative paths
   notes: string[];
+};
+
+export type SummarizeCIOutput = {
+  providers: string[];
+  files: string[];
+  workflows: CIWorkflow[];
+  languages: {
+    node?: string[];
+    python?: string[];
+    php?: string[];
+    java?: string[];
+    go?: string[];
+    dotnet?: string[];
+    ruby?: string[];
+  };
+  secrets: string[];
+  caching: string[];
+  status: { hasCI: boolean; notes: string[] };
 };
