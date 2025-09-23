@@ -15,12 +15,42 @@ export type RawChunk = {
 };
 
 const EXT_LANG: Record<string, string> = {
-  '.ts': 'typescript', '.tsx': 'typescript', '.js': 'javascript', '.jsx': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript',
-  '.py': 'python', '.rb': 'ruby', '.go': 'go', '.rs': 'rust', '.java': 'java', '.kt': 'kotlin', '.kts': 'kotlin',
-  '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.cc': 'cpp', '.hpp': 'cpp', '.hh': 'cpp',
-  '.cs': 'csharp', '.php': 'php', '.sh': 'bash', '.ps1': 'powershell', '.sql': 'sql',
-  '.json': 'json', '.jsonc': 'json', '.yml': 'yaml', '.yaml': 'yaml', '.toml': 'toml', '.ini': 'ini', '.properties': 'properties',
-  '.env': 'env', '.md': 'markdown', '.mdx': 'markdown', '.rst': 'rst', '.txt': 'text',
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.js': 'javascript',
+  '.jsx': 'javascript',
+  '.mjs': 'javascript',
+  '.cjs': 'javascript',
+  '.py': 'python',
+  '.rb': 'ruby',
+  '.go': 'go',
+  '.rs': 'rust',
+  '.java': 'java',
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  '.c': 'c',
+  '.h': 'c',
+  '.cpp': 'cpp',
+  '.cc': 'cpp',
+  '.hpp': 'cpp',
+  '.hh': 'cpp',
+  '.cs': 'csharp',
+  '.php': 'php',
+  '.sh': 'bash',
+  '.ps1': 'powershell',
+  '.sql': 'sql',
+  '.json': 'json',
+  '.jsonc': 'json',
+  '.yml': 'yaml',
+  '.yaml': 'yaml',
+  '.toml': 'toml',
+  '.ini': 'ini',
+  '.properties': 'properties',
+  '.env': 'env',
+  '.md': 'markdown',
+  '.mdx': 'markdown',
+  '.rst': 'rst',
+  '.txt': 'text',
 };
 
 const TARGET = READMEA.EMBED_TARGET_CHARS;
@@ -40,20 +70,10 @@ export const chunkFiles = (files: string[], repoRoot: string): RawChunk[] => {
 
       const rel = normalizeRel(abs, repoRoot);
       const lang = EXT_LANG[path.extname(abs).toLowerCase()];
-      const chunks = splitText(text, TARGET, OVERLAP);
+      const slices = splitText(text, TARGET, OVERLAP);
 
-      let prefixByteLenCache: number[] | null = null;
-      const getByteOffset = (charIndex: number) => {
-        if (!prefixByteLenCache) {
-          prefixByteLenCache = new Array(text.length + 1);
-          prefixByteLenCache[0] = 0;
-        }
-        const slice = text.slice(0, charIndex);
-        return Buffer.byteLength(slice, 'utf8');
-      };
-
-      for (const c of chunks) {
-        const startB = getByteOffset(c.start);
+      for (const c of slices) {
+        const startB = Buffer.byteLength(text.slice(0, c.start), 'utf8');
         const endB = startB + Buffer.byteLength(c.text, 'utf8');
         out.push({
           id: randomUUID(),
@@ -65,8 +85,7 @@ export const chunkFiles = (files: string[], repoRoot: string): RawChunk[] => {
           sha1: sha1(c.text),
         });
       }
-    } catch {
-    }
+    } catch {}
   }
   return out;
 };
@@ -81,18 +100,17 @@ const isMostlyText = (s: string) => {
 type Slice = { start: number; end: number; text: string };
 
 const splitText = (src: string, target: number, overlap: number): Slice[] => {
-  if (!src.trim()) return [];
+  const N = src.length;
+  if (N === 0) return [];
+  if (N <= target) return [{ start: 0, end: N, text: src }];
+
   const fences = locateFences(src);
   const chunks: Slice[] = [];
 
   let pos = 0;
-  const N = src.length;
-
   while (pos < N) {
     let end = Math.min(pos + target, N);
-
-    const softEnd = findSoftBoundary(src, end, /*maxLook*/ 200);
-    end = Math.min(softEnd, N);
+    end = Math.min(findSoftBoundary(src, end, 200), N);
 
     const fence = fenceContaining(fences, pos, end);
     if (fence && end < fence.end) end = fence.end;
@@ -103,50 +121,42 @@ const splitText = (src: string, target: number, overlap: number): Slice[] => {
       continue;
     }
 
-    const text = src.slice(s2, e2);
-    chunks.push({ start: s2, end: e2, text });
+    chunks.push({ start: s2, end: e2, text: src.slice(s2, e2) });
 
     if (e2 >= N) break;
-    pos = Math.max(e2 - overlap, s2 + 1);
-  }
 
+    const next = Math.max(e2 - overlap, s2 + 1);
+    if (next <= pos) break;
+    pos = next;
+  }
   return chunks;
 };
 
 type Fence = { start: number; end: number };
-
 const locateFences = (s: string): Fence[] => {
   const out: Fence[] = [];
-  const fenceRe = /```/g;
+  const re = /```/g;
   let m: RegExpExecArray | null;
-  const starts: number[] = [];
-  while ((m = fenceRe.exec(s))) {
-    const idx = m.index;
-    if (starts.length === 0) starts.push(idx);
-    else {
-      const st = starts.pop()!;
-      out.push({ start: st, end: idx + 3 });
-    }
+  const stack: number[] = [];
+  while ((m = re.exec(s))) {
+    const i = m.index;
+    if (stack.length === 0) stack.push(i);
+    else out.push({ start: stack.pop()!, end: i + 3 });
   }
   return out.sort((a, b) => a.start - b.start);
 };
-
-const fenceContaining = (fences: Fence[], from: number, to: number): Fence | undefined =>
-  fences.find((f) => f.start < to && from < f.end);
-
+const fenceContaining = (f: Fence[], from: number, to: number) =>
+  f.find((x) => x.start < to && from < x.end);
 const findSoftBoundary = (s: string, idx: number, maxLook: number) => {
   const N = s.length;
   if (idx >= N) return N;
   const upto = Math.min(idx + maxLook, N);
-  const nextNL = s.indexOf('\n', idx);
-  if (nextNL !== -1 && nextNL <= upto) return nextNL + 1;
-  return idx;
+  const nl = s.indexOf('\n', idx);
+  return nl !== -1 && nl <= upto ? nl + 1 : idx;
 };
-
 const trimEdges = (s: string, from: number, to: number) => {
   while (from < to && isWS(s.charCodeAt(from))) from++;
   while (to > from && isWS(s.charCodeAt(to - 1))) to--;
   return { start: from, end: to };
 };
-
 const isWS = (c: number) => c === 32 || c === 9 || c === 10 || c === 13;
