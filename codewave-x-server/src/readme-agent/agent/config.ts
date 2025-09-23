@@ -13,7 +13,9 @@ export const READMEA = {
   TIMEOUT_MS: int(process.env.READMEA_TIMEOUT_MS, 90_000),
 
   EMBED_BACKEND: (process.env.READMEA_EMBED_BACKEND as EmbedBackend) || 'file',
-  EMBED_DIM: int(process.env.READMEA_EMBED_DIM, 384),
+  EMBED_MODEL: process.env.READMEA_EMBED_MODEL || 'text-embedding-3-large',
+  OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
 
   EMBED_MAX_REPO_BYTES: int(
     process.env.READMEA_EMBED_MAXBYTES,
@@ -34,10 +36,3 @@ export const artifactsDirFor = (repoHash: string) =>
 
 export const embedIndexPathFor = (repoHash: string) =>
   path.join(artifactsDirFor(repoHash), 'embed', 'index.json');
-export const agentConfig = {
-  useLLM: process.env.AGENT_USE_LLM === '1',
-  maxRepairLoops: 2,
-  stepTimeoutMs: 10_000,
-  sectionCharCap: 600,
-  bannedPhrases: [/probably/i, /guess/i],
-} as const;
