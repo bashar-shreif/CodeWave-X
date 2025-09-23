@@ -1,4 +1,4 @@
-import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
+import { StateGraph, START, END } from '@langchain/langgraph';
 import { Channels } from './state';
 import { ingestRepoNode } from '../nodes/ingestRepo.node';
 import { scanNode } from '../nodes/scan.node';
@@ -15,6 +15,7 @@ import { writeSectionsNode } from '../nodes/writeSections.node';
 import { finalizeNode } from '../nodes/finalize.node';
 import { emitArtifactsNode } from '../nodes/emitArtifacts.node';
 import { aggregateSubprojectsNode } from '../nodes/aggregateSubproject.node';
+import { buildEmbeddingsNode } from '../nodes/buildEmbeddings.node';
 
 export const compileReadmeGraph = () => {
   const g = new StateGraph(Channels);
@@ -30,8 +31,9 @@ export const compileReadmeGraph = () => {
   g.addNode('Docs', docsNode);
   g.addNode('Security', securityNode);
   g.addNode('MergeSignals', mergeSignalsNode);
-  g.addNode('WriteSections', writeSectionsNode);
   g.addNode('AggregateSubprojects', aggregateSubprojectsNode);
+  g.addNode('BuildEmbeddings', buildEmbeddingsNode);
+  g.addNode('WriteSections', writeSectionsNode);
   g.addNode('Finalize', finalizeNode);
   g.addNode('EmitArtifacts', emitArtifactsNode);
 
@@ -53,10 +55,11 @@ export const compileReadmeGraph = () => {
   (g as any).addEdge('Docs', 'MergeSignals');
   (g as any).addEdge('Security', 'MergeSignals');
 
-  (g as any).addEdge('MergeSignals', 'WriteSections');
-  (g as any).addEdge('WriteSections', 'AggregateSubprojects');
-  (g as any).addEdge('AggregateSubprojects', 'Finalize');
+  (g as any).addEdge('MergeSignals', 'AggregateSubprojects');
+  (g as any).addEdge('AggregateSubprojects', 'BuildEmbeddings');
+  (g as any).addEdge('BuildEmbeddings', 'WriteSections');
 
+  (g as any).addEdge('WriteSections', 'Finalize');
   (g as any).addEdge('Finalize', 'EmitArtifacts');
   (g as any).addEdge('EmitArtifacts', END);
 
