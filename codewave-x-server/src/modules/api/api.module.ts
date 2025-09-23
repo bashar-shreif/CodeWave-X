@@ -3,10 +3,10 @@ import { AnalysisController } from '../../controllers/analysis/analysis.controll
 import { ProjectPathService } from '../../services/project-path/project-path.service';
 import { RunToolsService } from '../../services/run-tools/run-tools.service';
 import { ManifestDiscoveryService } from '../../services/manifest-discovery/manifest-discovery.service';
+import { AnalysisModule } from '../analysis/analysis.module';
+import { SecurityModule } from '../security/security.module';
 
 @Module({
-  controllers: [AnalysisController],
-  providers: [ProjectPathService, RunToolsService, ManifestDiscoveryService],
-  exports: [ProjectPathService, RunToolsService, ManifestDiscoveryService],
+  imports: [AnalysisModule, SecurityModule]
 })
 export class ApiModule {}
