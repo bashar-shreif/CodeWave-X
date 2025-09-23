@@ -243,3 +243,14 @@ export type ComposeFinalReadmeOutput = {
     badges: string[];
   };
 };
+
+export type BuildEmbeddingsInput = {
+  repoRoot: string;
+  repoHash: string;
+  force?: boolean;
+};
+
+export type BuildEmbeddingsOutput = {
+  indexPath: string;
+  stats: { files: number; chunks: number; dim: number };
+};
