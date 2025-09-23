@@ -1,25 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
+import { configDotenv } from 'dotenv';
+configDotenv();
 @Injectable()
 export class ProjectPathService {
-  private resolveRoot(): string {
-    return process.env.ARTIFACTS_ROOT || path.resolve(process.cwd(), 'artifacts');
+  private artifactsRoot = path.resolve(process.cwd(), 'artifacts');
+  private workspacesRoot = path.resolve(
+    process.cwd(),
+    process.env.READMEA_WORKSPACES_ROOT || 'workspaces',
+  );
+
+  resolveArtifactsDir(projectId: string) {
+    return path.resolve(this.artifactsRoot, projectId);
   }
 
-  resolveArtifactsDir(projectId: string): string {
-    const base = this.resolveRoot();
-    const dir = path.resolve(base, projectId);
-    return dir;
+  existsArtifactsDir(projectId: string) {
+    return fs.existsSync(this.resolveArtifactsDir(projectId));
   }
 
-  existsArtifactsDir(projectId: string): boolean {
-    const dir = this.resolveArtifactsDir(projectId);
-    try {
-      return fs.statSync(dir).isDirectory();
-    } catch {
-      return false;
-    }
+  resolveWorkspaceDir(projectId: string) {
+    return path.resolve(this.workspacesRoot, projectId);
+  }
+
+  existsWorkspaceDir(projectId: string) {
+    return fs.existsSync(this.resolveWorkspaceDir(projectId));
   }
 }
