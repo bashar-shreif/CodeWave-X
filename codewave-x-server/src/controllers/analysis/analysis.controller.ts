@@ -11,6 +11,11 @@ import { RunToolsService } from '../../services/run-tools/run-tools.service';
 import { DepsRunResponseDto } from '../../dto/runtime/deps-run.dto';
 import { StatsResponseDto } from 'src/dto/analysis/stats.dto/stats.dto';
 import { GetFilesResponseDto } from 'src/dto/analysis/files-response.dto/files-response.dto';
+import {
+  GetStacksResponseDto,
+  StacksResultDto,
+} from 'src/dto/analysis/stacks-response.dto/stacks-response.dto';
+import { ProjectParamDto } from 'src/dto/common/project-param/project-param.dto';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -95,6 +100,35 @@ export class AnalysisController {
       projectId,
       status: 'ok',
       tookMs: Date.now() - t0,
+      result,
+    };
+  }
+
+  @Get('stacks')
+  @ApiOperation({ summary: 'Detect frameworks & platforms' })
+  @ApiOkResponse({ type: GetStacksResponseDto })
+  async getStacks(
+    @Param() params: ProjectParamDto,
+  ): Promise<GetStacksResponseDto> {
+    const started = Date.now();
+    const { projectId } = params;
+
+    const data = await this.run.runStacks({ projectId });
+
+    const result: StacksResultDto = {
+      isMonorepo: data.isMonorepo,
+      aggregated: data.aggregated,
+      perSubproject: data.perSubproject?.map((p) => ({
+        name: p.name,
+        stacks: p.stacks,
+        raw: p.raw,
+      })),
+    };
+
+    return {
+      projectId,
+      status: 'ok',
+      tookMs: Date.now() - started,
       result,
     };
   }

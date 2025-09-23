@@ -1,55 +1,32 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 
-export class SubprojectStacksDto {
+export class StacksPerSubprojectDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty({
-    description: 'Technology stacks - can be an array of strings or an object with boolean values',
-    examples: [
-      ['react', 'nodejs', 'typescript'],
-      { react: true, nodejs: true, typescript: false }
-    ]
-  })
-  stacks: string[] | Record<string, boolean>;
-
-  @ApiPropertyOptional({
-    type: 'object',
-    additionalProperties: true,
-    nullable: true,
-    description: 'Raw analysis data'
-  })
-  raw?: Record<string, any> | null;
+  @ApiProperty({ type: [String] })
+  stacks: string[];
 }
 
 export class StacksResultDto {
-  @ApiProperty({ type: Boolean })
+  @ApiProperty()
   isMonorepo: boolean;
 
-  @ApiProperty({
-    description: 'Aggregated technology stacks - can be an array of strings or an object with boolean values',
-    examples: [
-      ['react', 'nodejs', 'typescript'],
-      { react: true, nodejs: true, typescript: false }
-    ]
-  })
-  aggregated: string[] | Record<string, boolean>;
+  @ApiProperty({ type: [String] })
+  aggregated: string[];
 
-  @ApiPropertyOptional({
-    type: [SubprojectStacksDto],
-    description: 'Per-subproject stack information'
-  })
-  perSubproject?: SubprojectStacksDto[];
+  @ApiProperty({ type: [StacksPerSubprojectDto], required: false })
+  perSubproject?: StacksPerSubprojectDto[];
 }
 
 export class GetStacksResponseDto {
   @ApiProperty()
   projectId: string;
 
-  @ApiProperty({ enum: ['ok'] })
+  @ApiProperty()
   status: 'ok';
 
-  @ApiProperty({ type: Number })
+  @ApiProperty()
   tookMs: number;
 
   @ApiProperty({ type: StacksResultDto })
