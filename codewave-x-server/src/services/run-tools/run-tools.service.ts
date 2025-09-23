@@ -14,6 +14,7 @@ import { ManifestEntry } from 'src/readme-agent/types/tools/manifest.type';
 import { ScanLanguagesOutput } from 'src/readme-agent/types/tools/io.type';
 import { summarizeArchitecture } from 'src/readme-agent/tools/summarize-architecture';
 import { summarizeCI } from 'src/readme-agent/tools/summarize-ci';
+import summarizeConfig from 'src/readme-agent/tools/summarize-config';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -944,5 +945,103 @@ export class RunToolsService {
       aggregated: { providers: aggProviders, workflowsCount: aggPaths.size },
       perSubproject,
     };
+  }
+
+  async runConfig(repoRoot: string) {
+    const entries: ManifestEntry[] = await this.manifests.walk(repoRoot);
+    const manifestNames = new Set([
+      'package.json',
+      'composer.json',
+      'pyproject.toml',
+      'go.mod',
+      'Cargo.toml',
+      'Gemfile',
+      'pom.xml',
+      'build.gradle',
+      'build.gradle.kts',
+    ]);
+    const dirs = new Set<string>();
+    for (const e of entries) {
+      const bn = path.basename(e.path);
+      if (manifestNames.has(bn)) dirs.add(path.dirname(e.path));
+    }
+    const subDirs = dirs.size ? Array.from(dirs) : ['.'];
+
+    const perSubproject: {
+      name: string;
+      bundlers: string[];
+      cssTools: string[];
+      env: { files: string[]; variables: string[] };
+    }[] = [];
+
+    for (const rel of subDirs) {
+      const name = rel === '.' ? path.basename(repoRoot) : path.basename(rel);
+      const subAbs = path.join(repoRoot, rel);
+      const manifest =
+        rel === '.'
+          ? entries
+          : entries
+              .filter((en) => en.path.startsWith(rel + path.sep))
+              .map<ManifestEntry>((en) => ({
+                path: en.path.slice(rel.length + 1),
+                size: en.size,
+                hash: en.hash,
+              }));
+
+      const out: any = await summarizeConfig(subAbs);
+
+      const bundlers = Array.from(
+        new Set(
+          this.toStrings(
+            out?.bundlers ??
+              out?.bundler ??
+              out?.buildTools ??
+              out?.build?.tools,
+          ),
+        ),
+      );
+      const cssTools = Array.from(
+        new Set(
+          this.toStrings(
+            out?.cssTools ??
+              out?.css?.tools ??
+              out?.preprocessors ??
+              out?.postcss?.plugins,
+          ),
+        ),
+      );
+
+      const toolEnvFiles = this.toStrings(out?.env?.files ?? out?.envFiles);
+      const toolEnvVars = this.toStrings(
+        out?.env?.variables ?? out?.env?.vars ?? out?.envVars ?? out?.env?.keys,
+      );
+
+      const envFilesScan = manifest
+        .map((m) => m.path.replace(/\\/g, '/'))
+        .filter((p) => {
+          const base = path.basename(p);
+          return base === '.env' || base.startsWith('.env.');
+        });
+
+      const env = {
+        files: Array.from(new Set([...toolEnvFiles, ...envFilesScan])),
+        variables: Array.from(new Set(toolEnvVars)),
+      };
+
+      perSubproject.push({ name, bundlers, cssTools, env });
+    }
+
+    const aggregated = {
+      bundlers: Array.from(new Set(perSubproject.flatMap((s) => s.bundlers))),
+      cssTools: Array.from(new Set(perSubproject.flatMap((s) => s.cssTools))),
+      env: {
+        files: Array.from(new Set(perSubproject.flatMap((s) => s.env.files))),
+        variables: Array.from(
+          new Set(perSubproject.flatMap((s) => s.env.variables)),
+        ),
+      },
+    };
+
+    return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
   }
 }
