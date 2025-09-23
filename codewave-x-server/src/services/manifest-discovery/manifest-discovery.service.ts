@@ -15,20 +15,22 @@ export class ManifestDiscoveryService {
   }
 
   async walk(root: string): Promise<ManifestEntry[]> {
-    const ignore = new Set([
+    const ignoreDirs = new Set([
       '.git',
+      '.svn',
+      '.hg',
       'node_modules',
       'dist',
       'build',
+      'target',
+      'vendor',
       '.next',
       '.turbo',
       '.cache',
-      'vendor',
-      'target',
+      '__pycache__',
+      '.pytest_cache',
       '.idea',
       '.vscode',
-      '.pytest_cache',
-      '__pycache__',
     ]);
     const out: ManifestEntry[] = [];
     const stack: string[] = ['.'];
@@ -39,12 +41,10 @@ export class ManifestDiscoveryService {
         .readdir(abs, { withFileTypes: true })
         .catch(() => []);
       for (const e of entries) {
-        if (ignore.has(e.name)) continue;
-        if (e.name.startsWith('.') && e.name !== '.gitignore') continue;
         const childRel = rel === '.' ? e.name : path.join(rel, e.name);
         const childAbs = path.join(root, childRel);
         if (e.isDirectory()) {
-          stack.push(childRel);
+          if (!ignoreDirs.has(e.name)) stack.push(childRel);
         } else if (e.isFile()) {
           const st = await fsp.stat(childAbs).catch(() => null);
           if (!st) continue;

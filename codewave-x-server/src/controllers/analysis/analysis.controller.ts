@@ -24,6 +24,7 @@ import {
 import { ArchitectureResponseDto } from 'src/dto/analysis/architecture-response.dto/architecture-response.dto';
 import path from 'path';
 import * as fs from 'fs';
+import { CiResponseDto } from 'src/dto/analysis/ci-response.dto/ci-response.dto';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -243,5 +244,79 @@ export class AnalysisController {
       tookMs: Date.now() - started,
       result,
     });
+  }
+
+  @Get('ci')
+  @ApiOperation({ summary: 'Summarize CI providers and workflows' })
+  @ApiOkResponse({
+    type: CiResponseDto,
+    schema: {
+      example: {
+        projectId: 'job_001',
+        status: 'ok',
+        tookMs: 22,
+        result: {
+          isMonorepo: true,
+          aggregated: {
+            providers: ['github-actions', 'gitlab-ci'],
+            workflowsCount: 3,
+          },
+          perSubproject: [
+            {
+              name: 'time-capsule-server',
+              providers: ['github-actions'],
+              workflows: [
+                {
+                  name: 'ci',
+                  path: '.github/workflows/ci.yml',
+                  triggers: ['push', 'pull_request'],
+                  jobs: ['build', 'test'],
+                },
+              ],
+            },
+            {
+              name: 'time-capsule-client',
+              providers: ['gitlab-ci'],
+              workflows: [
+                {
+                  name: 'build',
+                  path: '.gitlab-ci.yml',
+                  triggers: ['push'],
+                  jobs: ['build'],
+                },
+                {
+                  name: 'deploy',
+                  path: '.gitlab-ci.yml',
+                  triggers: ['tag'],
+                  jobs: ['deploy'],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async ci(@Param('projectId') projectId: string, @Res() res) {
+    const started = Date.now();
+    const rootBase =
+      process.env.READMEA_WORKSPACES_ROOT ||
+      path.join(__dirname, '..', 'workspaces');
+    const repoRoot = path.join(rootBase, projectId);
+    if (!fs.existsSync(repoRoot)) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        projectId,
+        status: 'error',
+        tookMs: Date.now() - started,
+        error: 'not_found',
+        message: 'Workspace not found',
+        details: { repoRoot },
+      });
+    }
+    const result = await this.run.runCI(repoRoot);
+    return res
+      .status(HttpStatus.OK)
+      .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
   }
 }

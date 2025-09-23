@@ -13,6 +13,7 @@ import detectStack from 'src/readme-agent/tools/detect-stacks';
 import { ManifestEntry } from 'src/readme-agent/types/tools/manifest.type';
 import { ScanLanguagesOutput } from 'src/readme-agent/types/tools/io.type';
 import { summarizeArchitecture } from 'src/readme-agent/tools/summarize-architecture';
+import { summarizeCI } from 'src/readme-agent/tools/summarize-ci';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -570,30 +571,66 @@ export class RunToolsService {
     };
   }
 
- private toStrings = (v: any): string[] =>
+  private toStrings = (v: any): string[] =>
     Array.isArray(v)
       ? v
-          .map(x =>
+          .map((x) =>
             typeof x === 'string'
               ? x
               : x && typeof x === 'object'
-              ? String(x.name ?? x.id ?? x.label ?? x.title ?? x.key ?? x.path ?? x.type ?? '')
-              : String(x ?? '')
+                ? String(
+                    x.name ??
+                      x.id ??
+                      x.label ??
+                      x.title ??
+                      x.key ??
+                      x.path ??
+                      x.type ??
+                      '',
+                  )
+                : String(x ?? ''),
           )
-          .filter(s => s && s.trim().length > 0)
+          .filter((s) => s && s.trim().length > 0)
       : [];
 
-  private subprojectManifest = (entries: ManifestEntry[], rel: string): ManifestEntry[] => {
+  private subprojectManifest = (
+    entries: ManifestEntry[],
+    rel: string,
+  ): ManifestEntry[] => {
     if (rel === '.') return entries;
     const pfx = rel + path.sep;
     return entries
-      .filter(en => en.path.startsWith(pfx))
-      .map(en => ({ path: en.path.slice(pfx.length), size: en.size, hash: en.hash }));
+      .filter((en) => en.path.startsWith(pfx))
+      .map((en) => ({
+        path: en.path.slice(pfx.length),
+        size: en.size,
+        hash: en.hash,
+      }));
   };
 
   private detectSignals = (entries: ManifestEntry[]) => {
-    const feExts = new Set(['.html', '.css', '.scss', '.sass', '.less', '.jsx', '.tsx', '.vue', '.svelte']);
-    const beExts = new Set(['.ts', '.js', '.py', '.go', '.rs', '.java', '.cs', '.php', '.rb']);
+    const feExts = new Set([
+      '.html',
+      '.css',
+      '.scss',
+      '.sass',
+      '.less',
+      '.jsx',
+      '.tsx',
+      '.vue',
+      '.svelte',
+    ]);
+    const beExts = new Set([
+      '.ts',
+      '.js',
+      '.py',
+      '.go',
+      '.rs',
+      '.java',
+      '.cs',
+      '.php',
+      '.rb',
+    ]);
     let hasFrontend = false;
     let hasBackend = false;
     for (const e of entries) {
@@ -616,7 +653,7 @@ export class RunToolsService {
       'Gemfile',
       'pom.xml',
       'build.gradle',
-      'build.gradle.kts'
+      'build.gradle.kts',
     ]);
     const dirs = new Set<string>();
     for (const e of entries) {
@@ -625,7 +662,12 @@ export class RunToolsService {
     }
     const subDirs = dirs.size ? Array.from(dirs) : ['.'];
 
-    const perSubproject: { name: string; summary: string; components: string[]; patterns: string[] }[] = [];
+    const perSubproject: {
+      name: string;
+      summary: string;
+      components: string[];
+      patterns: string[];
+    }[] = [];
 
     for (const rel of subDirs) {
       const name = rel === '.' ? path.basename(repoRoot) : path.basename(rel);
@@ -633,11 +675,18 @@ export class RunToolsService {
       const manifest = this.subprojectManifest(entries, rel);
       const { hasFrontend, hasBackend } = this.detectSignals(manifest);
 
-      const a: any = await summarizeArchitecture({ repoRoot: subAbs, manifest });
+      const a: any = await summarizeArchitecture({
+        repoRoot: subAbs,
+        manifest,
+      });
 
-      const summary = String(a?.summary ?? a?.text ?? a?.overview ?? a?.description ?? '').trim();
+      const summary = String(
+        a?.summary ?? a?.text ?? a?.overview ?? a?.description ?? '',
+      ).trim();
 
-      const rawComponents = this.toStrings(a?.components ?? a?.modules ?? a?.services ?? a?.parts ?? a?.layers);
+      const rawComponents = this.toStrings(
+        a?.components ?? a?.modules ?? a?.services ?? a?.parts ?? a?.layers,
+      );
       const set = new Set(rawComponents);
 
       if (!hasFrontend && set.has('Frontend')) set.delete('Frontend');
@@ -647,17 +696,253 @@ export class RunToolsService {
       if (hasBackend && !set.has('Backend')) set.add('Backend');
 
       const components = Array.from(set);
-      const patterns = this.toStrings(a?.patterns ?? a?.designPatterns ?? a?.architecturalPatterns);
+      const patterns = this.toStrings(
+        a?.patterns ?? a?.designPatterns ?? a?.architecturalPatterns,
+      );
 
       perSubproject.push({ name, summary, components, patterns });
     }
 
     const aggregated = {
-      summaries: perSubproject.map(s => s.summary).filter(Boolean),
-      components: Array.from(new Set(perSubproject.flatMap(s => s.components))),
-      patterns: Array.from(new Set(perSubproject.flatMap(s => s.patterns)))
+      summaries: perSubproject.map((s) => s.summary).filter(Boolean),
+      components: Array.from(
+        new Set(perSubproject.flatMap((s) => s.components)),
+      ),
+      patterns: Array.from(new Set(perSubproject.flatMap((s) => s.patterns))),
     };
 
     return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
+  }
+
+  private parseGhYaml = (content: string) => {
+    const triggers = new Set<string>();
+    const jobs = new Set<string>();
+    const lines = content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      const mList = l.match(/^\s*on:\s*\[(.+?)\]\s*$/);
+      if (mList) {
+        mList[1]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((x) => triggers.add(x));
+        continue;
+      }
+      const mOne = l.match(/^\s*on:\s*([A-Za-z_][\w-]*)\s*$/);
+      if (mOne) {
+        triggers.add(mOne[1]);
+        continue;
+      }
+      if (/^\s*on:\s*$/.test(l)) {
+        for (let j = i + 1; j < lines.length; j++) {
+          const lj = lines[j];
+          if (/^\S/.test(lj) || /^\s*jobs:\s*$/.test(lj)) break;
+          const mm = lj.match(/^\s{2,}([A-Za-z_][\w-]*)\s*:/);
+          if (mm) triggers.add(mm[1]);
+        }
+      }
+    }
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (/^\s*jobs:\s*$/.test(l)) {
+        for (let j = i + 1; j < lines.length; j++) {
+          const lj = lines[j];
+          if (/^\S/.test(lj)) break;
+          const mm = lj.match(/^\s{2,}([A-Za-z_][\w-]*)\s*:/);
+          if (mm) jobs.add(mm[1]);
+        }
+      }
+    }
+    return { triggers: Array.from(triggers), jobs: Array.from(jobs) };
+  };
+
+  private async scanCI(manifest: ManifestEntry[], subAbs: string) {
+    const providers = new Set<string>();
+    const workflows: {
+      name: string;
+      path: string;
+      triggers: string[];
+      jobs: string[];
+    }[] = [];
+    const add = (name: string, p: string, t: string[] = [], j: string[] = []) =>
+      workflows.push({ name, path: p, triggers: t, jobs: j });
+
+    for (const e of manifest) {
+      const p = e.path.replace(/\\/g, '/');
+      if (
+        p.startsWith('.github/workflows/') &&
+        (p.endsWith('.yml') || p.endsWith('.yaml'))
+      ) {
+        providers.add('github-actions');
+        const abs = path.join(subAbs, p);
+        let t: string[] = [];
+        let j: string[] = [];
+        try {
+          const content = await fsp.readFile(abs, 'utf8');
+          const parsed = this.parseGhYaml(content);
+          t = parsed.triggers;
+          j = parsed.jobs;
+        } catch {}
+        add(path.basename(p, path.extname(p)), p, t, j);
+        continue;
+      }
+      if (p === '.gitlab-ci.yml' || p === '.gitlab-ci.yaml') {
+        providers.add('gitlab-ci');
+        add('pipeline', p, [], []);
+        continue;
+      }
+      if (p === '.circleci/config.yml' || p === '.circleci/config.yaml') {
+        providers.add('circleci');
+        add('config', p, [], []);
+        continue;
+      }
+      if (p === 'azure-pipelines.yml' || p === 'azure-pipelines.yaml') {
+        providers.add('azure-pipelines');
+        add('pipeline', p, [], []);
+        continue;
+      }
+      if (p === 'bitbucket-pipelines.yml' || p === 'bitbucket-pipelines.yaml') {
+        providers.add('bitbucket-pipelines');
+        add('pipeline', p, [], []);
+        continue;
+      }
+      if (p === '.travis.yml') {
+        providers.add('travis-ci');
+        add('travis', p, [], []);
+        continue;
+      }
+      if (p === '.drone.yml' || p === '.drone.yaml') {
+        providers.add('drone');
+        add('drone', p, [], []);
+        continue;
+      }
+      if (p === 'appveyor.yml' || p === 'appveyor.yaml') {
+        providers.add('appveyor');
+        add('appveyor', p, [], []);
+      }
+    }
+    const dedup = new Map<
+      string,
+      { name: string; path: string; triggers: string[]; jobs: string[] }
+    >();
+    for (const w of workflows) dedup.set(w.path, w);
+    return {
+      providers: Array.from(providers),
+      workflows: Array.from(dedup.values()),
+    };
+  }
+
+  async runCI(repoRoot: string) {
+    const entries: ManifestEntry[] = await this.manifests.walk(repoRoot);
+    const manifestNames = new Set([
+      'package.json',
+      'composer.json',
+      'pyproject.toml',
+      'go.mod',
+      'Cargo.toml',
+      'Gemfile',
+      'pom.xml',
+      'build.gradle',
+      'build.gradle.kts',
+    ]);
+    const dirs = new Set<string>();
+    for (const e of entries) {
+      const bn = path.basename(e.path);
+      if (manifestNames.has(bn)) dirs.add(path.dirname(e.path));
+    }
+    const subDirs = dirs.size ? Array.from(dirs) : ['.'];
+
+    const rootTool: any = await summarizeCI(repoRoot);
+    const rootProviders = Array.from(
+      new Set(
+        this.toStrings(
+          rootTool?.providers ?? rootTool?.provider ?? rootTool?.platforms,
+        ),
+      ),
+    );
+    const rootScan = await this.scanCI(entries, repoRoot);
+    const rootCIProviders = Array.from(
+      new Set([...rootProviders, ...rootScan.providers]),
+    );
+    const rootCIWorkflows = new Map<
+      string,
+      { name: string; path: string; triggers: string[]; jobs: string[] }
+    >();
+    [
+      ...(Array.isArray(rootTool?.workflows)
+        ? rootTool.workflows.map((x: any) => ({
+            name: String(x?.name ?? x?.id ?? x?.file ?? x?.path ?? 'workflow'),
+            path: String(x?.path ?? x?.file ?? ''),
+            triggers: this.toStrings(x?.triggers ?? x?.on ?? x?.events),
+            jobs: this.toStrings(x?.jobs ?? x?.steps),
+          }))
+        : []),
+      ...rootScan.workflows,
+    ].forEach((w) => rootCIWorkflows.set(w.path, w));
+
+    const perSubproject: {
+      name: string;
+      providers: string[];
+      workflows: {
+        name: string;
+        path: string;
+        triggers: string[];
+        jobs: string[];
+      }[];
+    }[] = [];
+
+    for (const rel of subDirs) {
+      const name = rel === '.' ? path.basename(repoRoot) : path.basename(rel);
+      const subAbs = path.join(repoRoot, rel);
+      const manifest = this.subprojectManifest(entries, rel);
+
+      const out: any = await summarizeCI(subAbs);
+      const toolProviders = Array.from(
+        new Set(
+          this.toStrings(out?.providers ?? out?.provider ?? out?.platforms),
+        ),
+      );
+      const toolWorkflows = Array.isArray(out?.workflows)
+        ? out.workflows.map((x: any) => ({
+            name: String(x?.name ?? x?.id ?? x?.file ?? x?.path ?? 'workflow'),
+            path: String(x?.path ?? x?.file ?? ''),
+            triggers: this.toStrings(x?.triggers ?? x?.on ?? x?.events),
+            jobs: this.toStrings(x?.jobs ?? x?.steps),
+          }))
+        : [];
+
+      const fallback = await this.scanCI(manifest, subAbs);
+
+      const byPath = new Map<
+        string,
+        { name: string; path: string; triggers: string[]; jobs: string[] }
+      >();
+      [...toolWorkflows, ...fallback.workflows].forEach((w) =>
+        byPath.set(w.path, w),
+      );
+      rootCIWorkflows.forEach((w, p) => byPath.set(p, w));
+
+      const providers = Array.from(
+        new Set([...toolProviders, ...fallback.providers, ...rootCIProviders]),
+      );
+      const workflows = Array.from(byPath.values());
+
+      perSubproject.push({ name, providers, workflows });
+    }
+
+    const aggProviders = Array.from(
+      new Set(perSubproject.flatMap((s) => s.providers)),
+    );
+    const aggPaths = new Set<string>();
+    perSubproject.forEach((s) =>
+      s.workflows.forEach((w) => aggPaths.add(w.path)),
+    );
+
+    return {
+      isMonorepo: subDirs.length > 1,
+      aggregated: { providers: aggProviders, workflowsCount: aggPaths.size },
+      perSubproject,
+    };
   }
 }
