@@ -1,4 +1,4 @@
-import { StatsResponseDto } from './stats-response.dto';
+import { StatsResponseDto } from './stats.dto';
 
 describe('StatsResponseDto', () => {
   it('should be defined', () => {
