@@ -25,6 +25,7 @@ import { ArchitectureResponseDto } from 'src/dto/analysis/architecture-response.
 import path from 'path';
 import * as fs from 'fs';
 import { CiResponseDto } from 'src/dto/analysis/ci-response.dto/ci-response.dto';
+import { ConfigResponseDto } from 'src/dto/analysis/config-response.dto/config-response.dto';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -319,4 +320,66 @@ export class AnalysisController {
       .status(HttpStatus.OK)
       .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
   }
+
+  @Get('config')
+  @ApiOperation({ summary: 'Summarize build/config: bundlers, CSS tools, env' })
+  @ApiOkResponse({
+    type: ConfigResponseDto,
+    schema: {
+      example: {
+        projectId: 'job_001',
+        status: 'ok',
+        tookMs: 27,
+        result: {
+          isMonorepo: true,
+          aggregated: {
+            bundlers: ['Vite', 'Webpack'],
+            cssTools: ['PostCSS', 'Sass'],
+            env: {
+              files: ['.env', '.env.local'],
+              variables: ['API_URL', 'NODE_ENV'],
+            },
+          },
+          perSubproject: [
+            {
+              name: 'backend',
+              bundlers: ['Laravel Mix'],
+              cssTools: [],
+              env: { files: ['.env'], variables: ['APP_ENV', 'DB_HOST'] },
+            },
+            {
+              name: 'frontend',
+              bundlers: ['Vite'],
+              cssTools: ['PostCSS'],
+              env: { files: ['.env.local'], variables: ['VITE_API_URL'] },
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async config(@Param('projectId') projectId: string, @Res() res) {
+    const started = Date.now();
+    const rootBase =
+      process.env.READMEA_WORKSPACES_ROOT ||
+      path.join(__dirname, '..', 'workspaces');
+    const repoRoot = path.join(rootBase, projectId);
+    if (!fs.existsSync(repoRoot)) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        projectId,
+        status: 'error',
+        tookMs: Date.now() - started,
+        error: 'not_found',
+        message: 'Workspace not found',
+        details: { repoRoot },
+      });
+    }
+    const result = await this.run.runConfig(repoRoot);
+    return res
+      .status(HttpStatus.OK)
+      .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
+  }
+
+  
 }

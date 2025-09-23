@@ -967,6 +967,130 @@ export class RunToolsService {
     }
     const subDirs = dirs.size ? Array.from(dirs) : ['.'];
 
+    const readJson = async (abs: string) => {
+      try {
+        return JSON.parse(await fsp.readFile(abs, 'utf8'));
+      } catch {
+        return null;
+      }
+    };
+
+    const detectFromPkg = (pkg: any) => {
+      const keys = new Set<string>();
+      const pull = (o: any) => {
+        if (o && typeof o === 'object')
+          Object.keys(o).forEach((k) => keys.add(k.toLowerCase()));
+      };
+      pull(pkg?.dependencies);
+      pull(pkg?.devDependencies);
+      pull(pkg?.peerDependencies);
+      pull(pkg?.optionalDependencies);
+      const scripts = pkg?.scripts
+        ? Object.values<string>(pkg.scripts).join(' ').toLowerCase()
+        : '';
+      const has = (k: string) =>
+        Array.from(keys).some(
+          (x) => x === k || x.startsWith(k + '-') || x.includes('/' + k),
+        ) || scripts.includes(k);
+      const bundlers: string[] = [];
+      if (has('vite')) bundlers.push('Vite');
+      if (
+        has('webpack') ||
+        has('react-scripts') ||
+        has('@angular-devkit/build-angular')
+      )
+        bundlers.push('Webpack');
+      if (has('rollup')) bundlers.push('Rollup');
+      if (has('parcel')) bundlers.push('Parcel');
+      if (has('esbuild')) bundlers.push('esbuild');
+      if (has('@swc/core') || has('@swc/cli')) bundlers.push('SWC');
+      if (has('laravel-mix')) bundlers.push('Laravel Mix');
+      if (has('next')) bundlers.push('Next');
+      if (has('nuxt')) bundlers.push('Vite');
+      if (has('astro')) bundlers.push('Vite');
+      if (has('@sveltejs/kit')) bundlers.push('Vite');
+      const cssTools: string[] = [];
+      if (has('postcss')) cssTools.push('PostCSS');
+      if (has('autoprefixer')) cssTools.push('Autoprefixer');
+      if (has('tailwindcss')) cssTools.push('Tailwind CSS');
+      if (has('sass') || has('node-sass') || has('sass-embedded'))
+        cssTools.push('Sass');
+      if (has('less')) cssTools.push('Less');
+      if (has('stylus')) cssTools.push('Stylus');
+      return {
+        bundlers: Array.from(new Set(bundlers)),
+        cssTools: Array.from(new Set(cssTools)),
+      };
+    };
+
+    const detectFromFiles = (paths: string[]) => {
+      const bundlers: string[] = [];
+      const cssTools: string[] = [];
+      const test = (re: RegExp) => paths.some((p) => re.test(p));
+      if (test(/(^|\/)vite\.config\.(js|ts|mjs|cjs)$/)) bundlers.push('Vite');
+      if (test(/(^|\/)webpack(\.[\w-]+)?\.config\.(js|ts|mjs|cjs)$/))
+        bundlers.push('Webpack');
+      if (test(/(^|\/)rollup\.config\.(js|ts|mjs|cjs)$/))
+        bundlers.push('Rollup');
+      if (test(/(^|\/)webpack\.mix\.js$/)) bundlers.push('Laravel Mix');
+      if (test(/(^|\/)gulpfile\.(js|ts|mjs|cjs)$/)) bundlers.push('Gulp');
+      if (test(/(^|\/)postcss\.config\.(js|ts|mjs|cjs)$/))
+        cssTools.push('PostCSS');
+      if (test(/(^|\/)tailwind\.config\.(js|ts|mjs|cjs)$/))
+        cssTools.push('Tailwind CSS');
+      if (test(/(^|\/)sass\.config\.(js|ts|mjs|cjs)$/)) cssTools.push('Sass');
+      return {
+        bundlers: Array.from(new Set(bundlers)),
+        cssTools: Array.from(new Set(cssTools)),
+      };
+    };
+
+    const parseEnvVars = async (abs: string) => {
+      try {
+        return (await fsp.readFile(abs, 'utf8'))
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter((l) => l && !l.startsWith('#') && l.includes('='))
+          .map((l) => l.split('=')[0].trim())
+          .filter(Boolean);
+      } catch {
+        return [];
+      }
+    };
+
+    const inferFromStack = (stack: any) => {
+      const vals: string[] = [];
+      const push = (s: any) => vals.push(String(s).toLowerCase());
+      if (Array.isArray(stack?.frameworks)) stack.frameworks.forEach(push);
+      if (Array.isArray(stack?.detected)) stack.detected.forEach(push);
+      if (Array.isArray(stack?.hits))
+        stack.hits.forEach((h: any) => push(h?.name ?? h?.id ?? h?.label ?? h));
+      const bundlers: string[] = [];
+      const cssTools: string[] = [];
+      const has = (k: string) => vals.some((v) => v.includes(k));
+      if (has('vite')) bundlers.push('Vite');
+      if (has('webpack')) bundlers.push('Webpack');
+      if (has('rollup')) bundlers.push('Rollup');
+      if (has('parcel')) bundlers.push('Parcel');
+      if (has('esbuild')) bundlers.push('esbuild');
+      if (has('swc')) bundlers.push('SWC');
+      if (has('laravel')) bundlers.push('Laravel Mix');
+      if (has('next')) bundlers.push('Next');
+      if (has('nuxt')) bundlers.push('Vite');
+      if (has('astro')) bundlers.push('Vite');
+      if (has('svelte')) bundlers.push('Vite');
+      if (has('postcss')) cssTools.push('PostCSS');
+      if (has('autoprefixer')) cssTools.push('Autoprefixer');
+      if (has('tailwind')) cssTools.push('Tailwind CSS');
+      if (has('sass')) cssTools.push('Sass');
+      if (has('less')) cssTools.push('Less');
+      if (has('stylus')) cssTools.push('Stylus');
+      return {
+        bundlers: Array.from(new Set(bundlers)),
+        cssTools: Array.from(new Set(cssTools)),
+      };
+    };
+
     const perSubproject: {
       name: string;
       bundlers: string[];
@@ -987,45 +1111,59 @@ export class RunToolsService {
                 size: en.size,
                 hash: en.hash,
               }));
+      const pathsRel = manifest.map((m) => m.path.replace(/\\/g, '/'));
+
+      const stack: any = await detectStack({ repoRoot: subAbs, manifest });
+      const stackDet = inferFromStack(stack);
 
       const out: any = await summarizeConfig(subAbs);
-
-      const bundlers = Array.from(
-        new Set(
-          this.toStrings(
-            out?.bundlers ??
-              out?.bundler ??
-              out?.buildTools ??
-              out?.build?.tools,
-          ),
-        ),
+      const toolBundlers = this.toStrings(
+        out?.bundlers ?? out?.bundler ?? out?.buildTools ?? out?.build?.tools,
       );
-      const cssTools = Array.from(
-        new Set(
-          this.toStrings(
-            out?.cssTools ??
-              out?.css?.tools ??
-              out?.preprocessors ??
-              out?.postcss?.plugins,
-          ),
-        ),
+      const toolCss = this.toStrings(
+        out?.cssTools ??
+          out?.css?.tools ??
+          out?.preprocessors ??
+          out?.postcss?.plugins,
       );
 
+      const fileDet = detectFromFiles(pathsRel);
+
+      const pkgRel = pathsRel.find((p) => p === 'package.json');
+      const pkg = pkgRel ? await readJson(path.join(subAbs, pkgRel)) : null;
+      const pkgDet = pkg ? detectFromPkg(pkg) : { bundlers: [], cssTools: [] };
+
+      const envFilesScan = pathsRel.filter((p) => {
+        const b = path.basename(p);
+        return b === '.env' || b.startsWith('.env.');
+      });
       const toolEnvFiles = this.toStrings(out?.env?.files ?? out?.envFiles);
       const toolEnvVars = this.toStrings(
         out?.env?.variables ?? out?.env?.vars ?? out?.envVars ?? out?.env?.keys,
       );
+      const envVarsSets: string[][] = [];
+      for (const ef of envFilesScan)
+        envVarsSets.push(await parseEnvVars(path.join(subAbs, ef)));
 
-      const envFilesScan = manifest
-        .map((m) => m.path.replace(/\\/g, '/'))
-        .filter((p) => {
-          const base = path.basename(p);
-          return base === '.env' || base.startsWith('.env.');
-        });
-
+      const bundlers = Array.from(
+        new Set([
+          ...toolBundlers,
+          ...fileDet.bundlers,
+          ...pkgDet.bundlers,
+          ...stackDet.bundlers,
+        ]),
+      );
+      const cssTools = Array.from(
+        new Set([
+          ...toolCss,
+          ...fileDet.cssTools,
+          ...pkgDet.cssTools,
+          ...stackDet.cssTools,
+        ]),
+      );
       const env = {
         files: Array.from(new Set([...toolEnvFiles, ...envFilesScan])),
-        variables: Array.from(new Set(toolEnvVars)),
+        variables: Array.from(new Set([...toolEnvVars, ...envVarsSets.flat()])),
       };
 
       perSubproject.push({ name, bundlers, cssTools, env });
