@@ -1,9 +1,10 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Param, Query, Res } from '@nestjs/common';
 import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiQuery,
+  ApiResponse,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
@@ -20,6 +21,9 @@ import {
   GetLanguagesResponseDto,
   LanguagesResultDto,
 } from 'src/dto/analysis/languages-response.dto/languages-response.dto';
+import { ArchitectureResponseDto } from 'src/dto/analysis/architecture-response.dto/architecture-response.dto';
+import path from 'path';
+import * as fs from 'fs';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -174,5 +178,70 @@ export class AnalysisController {
         aggregated: (res as any)?.aggregated ?? {},
       },
     };
+  }
+
+  @Get('architecture')
+  @ApiOperation({
+    summary: 'Summarize architecture per subproject and aggregate',
+  })
+  @ApiOkResponse({
+    type: ArchitectureResponseDto,
+    schema: {
+      example: {
+        projectId: 'job_001',
+        status: 'ok',
+        tookMs: 28,
+        result: {
+          isMonorepo: true,
+          aggregated: {
+            summaries: [
+              'Modular NestJS backend with DI and modules',
+              'React SPA with routing and API client',
+            ],
+            components: ['API', 'Auth', 'DB', 'UI', 'CLI'],
+            patterns: ['Repository', 'Factory', 'Observer'],
+          },
+          perSubproject: [
+            {
+              name: 'api',
+              summary: 'NestJS modular service exposing REST endpoints',
+              components: ['API', 'Auth', 'DB'],
+              patterns: ['Repository'],
+            },
+            {
+              name: 'web',
+              summary: 'React app with SPA routing',
+              components: ['UI'],
+              patterns: ['Observer'],
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async architecture(@Param('projectId') projectId: string, @Res() res) {
+    const started = Date.now();
+    const rootBase =
+      process.env.READMEA_WORKSPACES_ROOT ||
+      path.join(__dirname, '..', 'workspaces');
+    const repoRoot = path.join(rootBase, projectId);
+    if (!fs.existsSync(repoRoot)) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        projectId,
+        status: 'error',
+        tookMs: Date.now() - started,
+        error: 'not_found',
+        message: 'Workspace not found',
+        details: { repoRoot },
+      });
+    }
+    const result = await this.run.runArchitecture(repoRoot);
+    return res.status(HttpStatus.OK).json({
+      projectId,
+      status: 'ok',
+      tookMs: Date.now() - started,
+      result,
+    });
   }
 }

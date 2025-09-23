@@ -9,9 +9,51 @@ type Group = { name: string; dir: string; manifest: ManifestEntry[] };
 
 @Injectable()
 export class ManifestDiscoveryService {
-  private async sha1(file: string) {
+  async sha1File(file: string) {
     const buf = await fsp.readFile(file);
     return crypto.createHash('sha1').update(buf).digest('hex');
+  }
+
+  async walk(root: string): Promise<ManifestEntry[]> {
+    const ignore = new Set([
+      '.git',
+      'node_modules',
+      'dist',
+      'build',
+      '.next',
+      '.turbo',
+      '.cache',
+      'vendor',
+      'target',
+      '.idea',
+      '.vscode',
+      '.pytest_cache',
+      '__pycache__',
+    ]);
+    const out: ManifestEntry[] = [];
+    const stack: string[] = ['.'];
+    while (stack.length) {
+      const rel = stack.pop() as string;
+      const abs = path.join(root, rel);
+      const entries = await fsp
+        .readdir(abs, { withFileTypes: true })
+        .catch(() => []);
+      for (const e of entries) {
+        if (ignore.has(e.name)) continue;
+        if (e.name.startsWith('.') && e.name !== '.gitignore') continue;
+        const childRel = rel === '.' ? e.name : path.join(rel, e.name);
+        const childAbs = path.join(root, childRel);
+        if (e.isDirectory()) {
+          stack.push(childRel);
+        } else if (e.isFile()) {
+          const st = await fsp.stat(childAbs).catch(() => null);
+          if (!st) continue;
+          const hash = await this.sha1File(childAbs);
+          out.push({ path: childRel.replace(/\\/g, '/'), size: st.size, hash });
+        }
+      }
+    }
+    return out;
   }
 
   async discover(root: string): Promise<ManifestEntry[]> {
@@ -19,7 +61,7 @@ export class ManifestDiscoveryService {
     const add = async (rel: string) => {
       const abs = path.join(root, rel);
       const stat = await fsp.stat(abs);
-      const hash = await this.sha1(abs);
+      const hash = await this.sha1File(abs);
       files.push({ path: rel, size: stat.size, hash });
     };
 
@@ -91,6 +133,7 @@ export class ManifestDiscoveryService {
     }
     return dir;
   }
+
   async discoverAllFiles(
     root: string,
     maxDepth: number = 3,
@@ -113,74 +156,67 @@ export class ManifestDiscoveryService {
 
     const scanDir = async (dir: string, currentDepth: number = 0) => {
       if (currentDepth > maxDepth) return;
-
-      try {
-        const entries = await fsp.readdir(dir, { withFileTypes: true });
-
-        for (const entry of entries) {
-          if (entry.name.startsWith('.') && entry.name !== '.gitignore')
-            continue;
-
-          const fullPath = path.join(dir, entry.name);
-          const relativePath = path.relative(root, fullPath);
-
-          if (entry.isDirectory()) {
-            if (!ignoreDirs.has(entry.name)) {
-              await scanDir(fullPath, currentDepth + 1);
-            }
-          } else if (entry.isFile()) {
-            const ext = path.extname(entry.name).toLowerCase();
-            const sourceExts = new Set([
-              '.js',
-              '.ts',
-              '.jsx',
-              '.tsx',
-              '.py',
-              '.java',
-              '.cpp',
-              '.c',
-              '.h',
-              '.cs',
-              '.php',
-              '.rb',
-              '.go',
-              '.rs',
-              '.swift',
-              '.kt',
-              '.scala',
-              '.html',
-              '.css',
-              '.scss',
-              '.sass',
-              '.less',
-              '.vue',
-              '.svelte',
-              '.json',
-              '.yaml',
-              '.yml',
-              '.xml',
-              '.md',
-              '.sql',
-              '.sh',
-              '.bat',
-            ]);
-
-            if (
-              sourceExts.has(ext) ||
-              entry.name === 'Dockerfile' ||
-              entry.name === 'Makefile'
-            ) {
-              const stat = await fsp.stat(fullPath);
-              const hash = await this.sha1(fullPath);
-              files.push({
-                path: relativePath.replace(/\\/g, '/'),
-                size: stat.size,
-                hash,
-              });
-            }
+      const entries = await fsp
+        .readdir(dir, { withFileTypes: true })
+        .catch(() => []);
+      for (const entry of entries) {
+        if (entry.name.startsWith('.') && entry.name !== '.gitignore') continue;
+        const fullPath = path.join(dir, entry.name);
+        const relativePath = path.relative(root, fullPath);
+        if (entry.isDirectory()) {
+          if (!ignoreDirs.has(entry.name))
+            await scanDir(fullPath, currentDepth + 1);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase();
+          const sourceExts = new Set([
+            '.js',
+            '.ts',
+            '.jsx',
+            '.tsx',
+            '.py',
+            '.java',
+            '.cpp',
+            '.c',
+            '.h',
+            '.cs',
+            '.php',
+            '.rb',
+            '.go',
+            '.rs',
+            '.swift',
+            '.kt',
+            '.scala',
+            '.html',
+            '.css',
+            '.scss',
+            '.sass',
+            '.less',
+            '.vue',
+            '.svelte',
+            '.json',
+            '.yaml',
+            '.yml',
+            '.xml',
+            '.md',
+            '.sql',
+            '.sh',
+            '.bat',
+          ]);
+          if (
+            sourceExts.has(ext) ||
+            entry.name === 'Dockerfile' ||
+            entry.name === 'Makefile'
+          ) {
+            const stat = await fsp.stat(fullPath).catch(() => null);
+            if (!stat) continue;
+            const hash = await this.sha1File(fullPath);
+            files.push({
+              path: relativePath.replace(/\\/g, '/'),
+              size: stat.size,
+              hash,
+            });
           }
         }
-      } catch (error) {
       }
     };
 

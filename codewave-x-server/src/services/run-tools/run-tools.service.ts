@@ -12,6 +12,7 @@ import { computeStats } from 'src/readme-agent/tools/compute-stats';
 import detectStack from 'src/readme-agent/tools/detect-stacks';
 import { ManifestEntry } from 'src/readme-agent/types/tools/manifest.type';
 import { ScanLanguagesOutput } from 'src/readme-agent/types/tools/io.type';
+import { summarizeArchitecture } from 'src/readme-agent/tools/summarize-architecture';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -567,5 +568,96 @@ export class RunToolsService {
       aggregated,
       perSubproject,
     };
+  }
+
+ private toStrings = (v: any): string[] =>
+    Array.isArray(v)
+      ? v
+          .map(x =>
+            typeof x === 'string'
+              ? x
+              : x && typeof x === 'object'
+              ? String(x.name ?? x.id ?? x.label ?? x.title ?? x.key ?? x.path ?? x.type ?? '')
+              : String(x ?? '')
+          )
+          .filter(s => s && s.trim().length > 0)
+      : [];
+
+  private subprojectManifest = (entries: ManifestEntry[], rel: string): ManifestEntry[] => {
+    if (rel === '.') return entries;
+    const pfx = rel + path.sep;
+    return entries
+      .filter(en => en.path.startsWith(pfx))
+      .map(en => ({ path: en.path.slice(pfx.length), size: en.size, hash: en.hash }));
+  };
+
+  private detectSignals = (entries: ManifestEntry[]) => {
+    const feExts = new Set(['.html', '.css', '.scss', '.sass', '.less', '.jsx', '.tsx', '.vue', '.svelte']);
+    const beExts = new Set(['.ts', '.js', '.py', '.go', '.rs', '.java', '.cs', '.php', '.rb']);
+    let hasFrontend = false;
+    let hasBackend = false;
+    for (const e of entries) {
+      const ext = path.extname(e.path).toLowerCase();
+      if (feExts.has(ext)) hasFrontend = true;
+      if (beExts.has(ext)) hasBackend = true;
+      if (hasFrontend && hasBackend) break;
+    }
+    return { hasFrontend, hasBackend };
+  };
+
+  async runArchitecture(repoRoot: string) {
+    const entries: ManifestEntry[] = await this.manifests.walk(repoRoot);
+    const manifestNames = new Set([
+      'package.json',
+      'composer.json',
+      'pyproject.toml',
+      'go.mod',
+      'Cargo.toml',
+      'Gemfile',
+      'pom.xml',
+      'build.gradle',
+      'build.gradle.kts'
+    ]);
+    const dirs = new Set<string>();
+    for (const e of entries) {
+      const bn = path.basename(e.path);
+      if (manifestNames.has(bn)) dirs.add(path.dirname(e.path));
+    }
+    const subDirs = dirs.size ? Array.from(dirs) : ['.'];
+
+    const perSubproject: { name: string; summary: string; components: string[]; patterns: string[] }[] = [];
+
+    for (const rel of subDirs) {
+      const name = rel === '.' ? path.basename(repoRoot) : path.basename(rel);
+      const subAbs = path.join(repoRoot, rel);
+      const manifest = this.subprojectManifest(entries, rel);
+      const { hasFrontend, hasBackend } = this.detectSignals(manifest);
+
+      const a: any = await summarizeArchitecture({ repoRoot: subAbs, manifest });
+
+      const summary = String(a?.summary ?? a?.text ?? a?.overview ?? a?.description ?? '').trim();
+
+      const rawComponents = this.toStrings(a?.components ?? a?.modules ?? a?.services ?? a?.parts ?? a?.layers);
+      const set = new Set(rawComponents);
+
+      if (!hasFrontend && set.has('Frontend')) set.delete('Frontend');
+      if (hasFrontend && !set.has('Frontend')) set.add('Frontend');
+
+      if (!hasBackend && set.has('Backend')) set.delete('Backend');
+      if (hasBackend && !set.has('Backend')) set.add('Backend');
+
+      const components = Array.from(set);
+      const patterns = this.toStrings(a?.patterns ?? a?.designPatterns ?? a?.architecturalPatterns);
+
+      perSubproject.push({ name, summary, components, patterns });
+    }
+
+    const aggregated = {
+      summaries: perSubproject.map(s => s.summary).filter(Boolean),
+      components: Array.from(new Set(perSubproject.flatMap(s => s.components))),
+      patterns: Array.from(new Set(perSubproject.flatMap(s => s.patterns)))
+    };
+
+    return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
   }
 }
