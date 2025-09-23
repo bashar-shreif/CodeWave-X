@@ -1,13 +1,15 @@
-import { READMEA } from '../agent/config';
 import { buildEmbeddings } from '../tools/build-embeddings';
+import { embedIndexPathFor } from '../agent/config';
+import * as fs from 'fs';
 
 export const buildEmbeddingsNode = async (s: any) => {
-  if (!READMEA.USE_LLM) return {};
   if (!s?.repoRoot || !s?.repoHash) return {};
+  const indexPath = embedIndexPathFor(s.repoHash);
+  const exists = fs.existsSync(indexPath);
   await buildEmbeddings({
     repoRoot: s.repoRoot,
     repoHash: s.repoHash,
-    force: false,
+    force: !exists,
   });
   return {};
 };

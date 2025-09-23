@@ -3,13 +3,13 @@ import { READMEA } from './config';
 import { retrieve } from '../retrieval/retrieve.helper';
 import { redact } from '../retrieval/redact.util';
 
-type Sections = Record<string, string>;
+type AnySections = Record<string, string>;
 
-export const rewriteSectionsWithLLM = async (args: {
+export async function rewriteSectionsWithLLM<T extends AnySections>(args: {
   repoRoot: string;
   repoHash: string;
-  sections: Sections;
-}): Promise<Sections> => {
+  sections: T;
+}): Promise<T> {
   if (!READMEA.USE_LLM) return args.sections;
 
   const http = axios.create({
@@ -17,87 +17,52 @@ export const rewriteSectionsWithLLM = async (args: {
     headers: {
       authorization: `Bearer ${READMEA.OPENAI_API_KEY}`,
       'content-type': 'application/json',
-      ...(process.env.OPENAI_ORG_ID
-        ? { 'OpenAI-Organization': process.env.OPENAI_ORG_ID }
-        : {}),
-      ...(process.env.OPENAI_PROJECT
-        ? { 'OpenAI-Project': process.env.OPENAI_PROJECT }
-        : {}),
+      ...(process.env.OPENAI_ORG_ID ? { 'OpenAI-Organization': process.env.OPENAI_ORG_ID } : {}),
+      ...(process.env.OPENAI_PROJECT ? { 'OpenAI-Project': process.env.OPENAI_PROJECT } : {}),
     },
     timeout: READMEA.LLM_TIMEOUT_MS,
   });
 
-  const out: Sections = {};
-  const entries = Object.entries(args.sections);
+  const out = { ...(args.sections as AnySections) } as T;
 
-  for (const [id, base] of entries) {
+  for (const [id, base] of Object.entries(args.sections)) {
     try {
-      const q = mkQuery(id, base);
-      const ctx = await retrieve({
-        repoHash: args.repoHash,
-        query: q,
-        k: 6,
-        maxChars: 1200,
-        repoRoot: args.repoRoot,
-      });
+      const q = `Evidence for README "${id}": ${base.slice(0, 240)}`;
+      const ctx = await retrieve({ repoHash: args.repoHash, repoRoot: args.repoRoot, query: q, k: 6, maxChars: 1200 });
 
       const sys = [
         'You are a precise technical writer.',
-        'Task: rewrite one README section in clear markdown.',
         `Hard cap ${READMEA.LLM_MAX_SECTION_CHARS} characters.`,
-        'Do not include secrets, API keys, endpoints, or absolute paths.',
-        'If unsure, keep the safe draft text.',
-        'Return a strict JSON object: {"id": "<section id>", "body": "<markdown>"}',
+        'No secrets, keys, endpoints, or absolute paths.',
+        'Return JSON: {"id":"<section id>","body":"<markdown>"}',
       ].join(' ');
 
-      const user = {
-        id,
-        draft: base,
-        snippets: ctx.passages.map((p) => p.body).slice(0, 6),
-        rules: {
-          cap: READMEA.LLM_MAX_SECTION_CHARS,
-          no_secrets: true,
-          no_paths: true,
-        },
-      };
+      const user = { id, draft: base, snippets: ctx.passages.map(p => p.body).slice(0, 6) };
 
       const res = await http.post('/chat/completions', {
         model: READMEA.LLM_MODEL,
         response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: sys },
-          { role: 'user', content: JSON.stringify(user) },
-        ],
         temperature: 0.2,
+        messages: [{ role: 'system', content: sys }, { role: 'user', content: JSON.stringify(user) }],
       });
 
       const txt: string = res?.data?.choices?.[0]?.message?.content ?? '';
+      const body = safeBody(id, txt) ?? base;
+      const red = redact(body).slice(0, READMEA.LLM_MAX_SECTION_CHARS);
 
-      let body = safeParseBody(id, txt) ?? base;
-      body = redact(body);
-      if (body.length > READMEA.LLM_MAX_SECTION_CHARS) {
-        body = body.slice(0, READMEA.LLM_MAX_SECTION_CHARS);
-      }
-
-      out[id] = body;
+      (out as AnySections)[id] = red;
     } catch {
-      out[id] = base;
+      (out as AnySections)[id] = base;
     }
   }
-
   return out;
-};
+}
 
-const mkQuery = (id: string, draft: string) =>
-  `Evidence for README "${id}": ${draft.slice(0, 240)}`;
-
-const safeParseBody = (id: string, s: string): string | null => {
+const safeBody = (id: string, s: string): string | null => {
   try {
     const j = JSON.parse(s);
-    const body = typeof j?.body === 'string' ? j.body : null;
     const okId = typeof j?.id === 'string' ? j.id : id;
-    return body && okId ? body : null;
-  } catch {
-    return null;
-  }
+    const body = typeof j?.body === 'string' ? j.body : null;
+    return okId && body ? body : null;
+  } catch { return null; }
 };

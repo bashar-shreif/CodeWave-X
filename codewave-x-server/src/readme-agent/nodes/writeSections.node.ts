@@ -1,7 +1,8 @@
-import type { GraphState } from "../agent/state";
-import { writeSectionsAgent } from "../agent/writeSections.agent";
+import { writeSectionsAgent } from '../agent/writeSections.agent';
+import { rewriteSectionsWithLLM } from '../agent/llmRewrite.agent';
+import { READMEA } from '../agent/config';
 
-export const writeSectionsNode = async (s: GraphState): Promise<Partial<GraphState>> => {
+export const writeSectionsNode = async (s: any) => {
   const out = await writeSectionsAgent({
     repoRoot: s.repoRoot,
     repoHash: s.repoHash,
@@ -16,9 +17,18 @@ export const writeSectionsNode = async (s: GraphState): Promise<Partial<GraphSta
     ci: s.ci,
     docs: s.docs,
     security: s.security,
-    descriptionHint: (s as any).descriptionHint,
-    projectName: (s as any).projectName,
   });
 
-  return { draft: { sections: out.sections, decisions: out.decisions } as any };
+  const baseSections = out.sections;
+  const finalSections = READMEA.USE_LLM
+    ? await rewriteSectionsWithLLM<typeof baseSections>({
+        repoRoot: s.repoRoot,
+        repoHash: s.repoHash,
+        sections: baseSections,
+      })
+    : baseSections;
+
+  return {
+    draft: { sections: finalSections, decisions: out.decisions } as any,
+  };
 };

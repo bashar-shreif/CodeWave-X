@@ -88,3 +88,5 @@ export const buildEmbeddings = async (
     stats: { files: files.length, chunks: chunks.length, dim },
   };
 };
+
+export default buildEmbeddings;
