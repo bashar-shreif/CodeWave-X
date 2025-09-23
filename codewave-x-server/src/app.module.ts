@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ReadmeModule } from './readme/readme.module';
+import { ReadmeModule } from './modules/readme/readme.module';
 import { AnalysisController } from './controllers/analysis/analysis.controller';
 import { ApiModule } from './modules/api/api.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';

@@ -4,8 +4,8 @@ import { randomUUID, createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { compileReadmeGraph } from '../readme-agent/agent/graph';
-import type { GraphState } from '../readme-agent/agent/state';
+import { compileReadmeGraph } from '../../readme-agent/agent/graph';
+import type { GraphState } from '../../readme-agent/agent/state';
 
 type RunMode = 'draft' | 'final';
 

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ReadmeController } from './readme.controller';
-import { ReadmeOrchestratorService } from '../orchestrator/readmeOrchestrator.service';
+import { ReadmeController } from '../../controllers/readme/readme.controller';
+import { ReadmeOrchestratorService } from '../../services/orchestrator/readmeOrchestrator.service';
 
 @Module({
   controllers: [ReadmeController],

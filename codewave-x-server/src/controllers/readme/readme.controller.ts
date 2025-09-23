@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Query, Sse } from '@nestjs/common';
 import { Observable, map } from 'rxjs';
-import { ReadmeOrchestratorService } from '../orchestrator/readmeOrchestrator.service';
+import { ReadmeOrchestratorService } from '../../services/orchestrator/readmeOrchestrator.service';
 
 type DraftDto = { repoRoot: string; force?: boolean; useLLM?: boolean };
 type FinalDto = { repoRoot: string; force?: boolean; useLLM?: boolean };
