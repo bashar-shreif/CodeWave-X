@@ -15,7 +15,10 @@ export const READMEA = {
   EMBED_BACKEND: (process.env.READMEA_EMBED_BACKEND as EmbedBackend) || 'file',
   EMBED_DIM: int(process.env.READMEA_EMBED_DIM, 384),
 
-  EMBED_MAX_REPO_BYTES: int(process.env.READMEA_EMBED_MAXBYTES, 50 * 1024 * 1024),
+  EMBED_MAX_REPO_BYTES: int(
+    process.env.READMEA_EMBED_MAXBYTES,
+    50 * 1024 * 1024,
+  ),
   EMBED_MAX_FILE_BYTES: int(process.env.READMEA_EMBED_MAXFILEBYTES, 512 * 1024),
 
   EMBED_TARGET_CHARS: int(process.env.READMEA_EMBED_TARGET_CHARS, 1400),
@@ -31,3 +34,10 @@ export const artifactsDirFor = (repoHash: string) =>
 
 export const embedIndexPathFor = (repoHash: string) =>
   path.join(artifactsDirFor(repoHash), 'embed', 'index.json');
+export const agentConfig = {
+  useLLM: process.env.AGENT_USE_LLM === '1',
+  maxRepairLoops: 2,
+  stepTimeoutMs: 10_000,
+  sectionCharCap: 600,
+  bannedPhrases: [/probably/i, /guess/i],
+} as const;
