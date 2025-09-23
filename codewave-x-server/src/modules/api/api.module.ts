@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { AnalysisModule } from '../analysis/analysis.module';
 
-@Module({})
+@Module({
+  imports: [AnalysisModule],
+})
 export class ApiModule {}

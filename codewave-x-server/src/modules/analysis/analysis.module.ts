@@ -7,5 +7,6 @@ import { JsonFileService } from '../../services/json-file/json-file.service';
 @Module({
   controllers: [AnalysisController],
   providers: [AnalysisService, ProjectPathService, JsonFileService],
+  exports: [AnalysisService],
 })
 export class AnalysisModule {}
