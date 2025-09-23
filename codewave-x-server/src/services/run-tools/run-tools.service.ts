@@ -246,15 +246,28 @@ export class RunToolsService {
     return { files, bytes };
   }
 
- private async hashFile(p: string) {
+  private async hashFile(p: string) {
     const buf = await fsp.readFile(p);
     const h = crypto.createHash('sha1').update(buf).digest('hex');
     return h;
   }
 
-  private async buildManifest(dir: string, base: string): Promise<Array<{ path: string; size: number; hash: string }>> {
+  private async buildManifest(
+    dir: string,
+    base: string,
+  ): Promise<Array<{ path: string; size: number; hash: string }>> {
     const out: Array<{ path: string; size: number; hash: string }> = [];
-    const ignoreDirs = new Set(['.git', 'node_modules', 'vendor', 'artifacts', 'dist', 'build', '.next', '.cache', 'tmp']);
+    const ignoreDirs = new Set([
+      '.git',
+      'node_modules',
+      'vendor',
+      'artifacts',
+      'dist',
+      'build',
+      '.next',
+      '.cache',
+      'tmp',
+    ]);
     const stack: string[] = [dir];
     while (stack.length) {
       const cur = stack.pop() as string;
@@ -280,11 +293,11 @@ export class RunToolsService {
     const discovered = await this.manifests.discover(repoRoot);
     const roots = Array.from(
       new Set(
-        discovered.map(m => {
+        discovered.map((m) => {
           const d = path.dirname(m.path);
           return d === '' || d === '.' ? '.' : d;
-        })
-      )
+        }),
+      ),
     );
 
     if (roots.length > 1) {
@@ -300,17 +313,35 @@ export class RunToolsService {
         totalFiles: 0,
         totalBytes: 0,
         languages: {
-          byLanguage: {} as Record<string, { files: number; loc: number; symbols?: { functions: number; classes: number; methods: number } }>,
-          totals: { files: 0, bytes: 0, loc: 0, functions: 0, classes: 0, methods: 0 },
+          byLanguage: {} as Record<
+            string,
+            {
+              files: number;
+              loc: number;
+              symbols?: { functions: number; classes: number; methods: number };
+            }
+          >,
+          totals: {
+            files: 0,
+            bytes: 0,
+            loc: 0,
+            functions: 0,
+            classes: 0,
+            methods: 0,
+          },
         },
         manifests: discovered.length,
         isMonorepo: true,
       };
 
       for (const rootRel of roots) {
-        const subRoot = rootRel === '.' ? repoRoot : path.join(repoRoot, rootRel);
+        const subRoot =
+          rootRel === '.' ? repoRoot : path.join(repoRoot, rootRel);
         const subManifest = await this.buildManifest(subRoot, subRoot);
-        const languages = await computeStats({ repoRoot: subRoot, manifest: subManifest });
+        const languages = await computeStats({
+          repoRoot: subRoot,
+          manifest: subManifest,
+        });
         const { files, bytes } = await this.walk(subRoot);
 
         perSubproject.push({
@@ -325,14 +356,24 @@ export class RunToolsService {
         agg.totalBytes += bytes;
 
         for (const [lang, st] of Object.entries(languages.byLanguage || {})) {
-          const cur = agg.languages.byLanguage[lang] || { files: 0, loc: 0, symbols: { functions: 0, classes: 0, methods: 0 } };
+          const cur = agg.languages.byLanguage[lang] || {
+            files: 0,
+            loc: 0,
+            symbols: { functions: 0, classes: 0, methods: 0 },
+          };
           agg.languages.byLanguage[lang] = {
             files: cur.files + (st as any).files,
             loc: cur.loc + (st as any).loc,
             symbols: {
-              functions: (cur.symbols?.functions || 0) + ((st as any).symbols?.functions || 0),
-              classes: (cur.symbols?.classes || 0) + ((st as any).symbols?.classes || 0),
-              methods: (cur.symbols?.methods || 0) + ((st as any).symbols?.methods || 0),
+              functions:
+                (cur.symbols?.functions || 0) +
+                ((st as any).symbols?.functions || 0),
+              classes:
+                (cur.symbols?.classes || 0) +
+                ((st as any).symbols?.classes || 0),
+              methods:
+                (cur.symbols?.methods || 0) +
+                ((st as any).symbols?.methods || 0),
             },
           };
         }
@@ -353,5 +394,54 @@ export class RunToolsService {
     const manifests = manifest.length;
     const isMonorepo = false;
     return { totalFiles, totalBytes, languages, manifests, isMonorepo };
+  }
+
+  async runFiles(opts: { projectId: string }) {
+    const repoRoot = this.paths.resolveWorkspaceDir(opts.projectId);
+    const discovered = await this.manifests.discover(repoRoot);
+    const roots = Array.from(
+      new Set(
+        discovered.map((m) => {
+          const d = path.dirname(m.path);
+          return d === '' || d === '.' ? '.' : d;
+        }),
+      ),
+    );
+
+    if (roots.length > 1) {
+      const per = [];
+      let totalFiles = 0;
+      let totalBytes = 0;
+      for (const rootRel of roots) {
+        const subRoot =
+          rootRel === '.' ? repoRoot : path.join(repoRoot, rootRel);
+        const files = await this.buildManifest(subRoot, subRoot);
+        const bytes = files.reduce((a, b) => a + b.size, 0);
+        per.push({
+          name: rootRel,
+          totalFiles: files.length,
+          totalBytes: bytes,
+          files,
+        } as never);
+        totalFiles += files.length;
+        totalBytes += bytes;
+      }
+      return {
+        totalFiles,
+        totalBytes,
+        files: [],
+        isMonorepo: true,
+        perSubproject: per,
+      };
+    }
+
+    const files = await this.buildManifest(repoRoot, repoRoot);
+    const bytes = files.reduce((a, b) => a + b.size, 0);
+    return {
+      totalFiles: files.length,
+      totalBytes: bytes,
+      files,
+      isMonorepo: false,
+    };
   }
 }
