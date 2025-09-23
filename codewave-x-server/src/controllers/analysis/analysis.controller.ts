@@ -11,11 +11,11 @@ import { DepsRunResponseDto } from '../../dto/runtime/deps-run.dto';
 import { StatsResponseDto } from 'src/dto/analysis/stats.dto/stats.dto';
 
 @ApiTags('analysis')
-@Controller('/v1/projects')
+@Controller('/v1/projects/:projectId')
 export class AnalysisController {
   constructor(private readonly run: RunToolsService) {}
 
-  @Get(':projectId/deps')
+  @Get('deps')
   @ApiOperation({ summary: 'Run dependency analysis tool' })
   @ApiParam({ name: 'projectId', required: true })
   @ApiOkResponse({ type: DepsRunResponseDto })

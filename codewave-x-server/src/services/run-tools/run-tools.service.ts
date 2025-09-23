@@ -5,7 +5,10 @@ import { summarizeDependencies } from '../../readme-agent/tools/summarize-depend
 import { summarizeSecurity } from '../../readme-agent/tools/summarize-security';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import * as crypto from 'node:crypto';
 import scanLanguages from 'src/readme-agent/tools/scan-languages';
+import { computeStats } from 'src/readme-agent/tools/compute-stats';
 
 type DepObj = { name: string; version: string; type: string };
 
@@ -243,13 +246,112 @@ export class RunToolsService {
     return { files, bytes };
   }
 
+ private async hashFile(p: string) {
+    const buf = await fsp.readFile(p);
+    const h = crypto.createHash('sha1').update(buf).digest('hex');
+    return h;
+  }
+
+  private async buildManifest(dir: string, base: string): Promise<Array<{ path: string; size: number; hash: string }>> {
+    const out: Array<{ path: string; size: number; hash: string }> = [];
+    const ignoreDirs = new Set(['.git', 'node_modules', 'vendor', 'artifacts', 'dist', 'build', '.next', '.cache', 'tmp']);
+    const stack: string[] = [dir];
+    while (stack.length) {
+      const cur = stack.pop() as string;
+      const ents = await fsp.readdir(cur, { withFileTypes: true });
+      for (const e of ents) {
+        const abs = path.join(cur, e.name);
+        if (e.isDirectory()) {
+          if (ignoreDirs.has(e.name)) continue;
+          stack.push(abs);
+        } else if (e.isFile()) {
+          const rel = path.relative(base, abs).replace(/\\/g, '/');
+          const stat = await fsp.stat(abs);
+          const hash = await this.hashFile(abs);
+          out.push({ path: rel, size: stat.size, hash });
+        }
+      }
+    }
+    return out;
+  }
+
   async runStats(opts: { projectId: string; force?: boolean }) {
     const repoRoot = this.paths.resolveWorkspaceDir(opts.projectId);
-    const manifest = await this.manifests.discover(repoRoot);
-    const langs = await scanLanguages({ repoRoot, manifest });
+    const discovered = await this.manifests.discover(repoRoot);
+    const roots = Array.from(
+      new Set(
+        discovered.map(m => {
+          const d = path.dirname(m.path);
+          return d === '' || d === '.' ? '.' : d;
+        })
+      )
+    );
+
+    if (roots.length > 1) {
+      const perSubproject: Array<{
+        name: string;
+        totalFiles: number;
+        totalBytes: number;
+        languages: any;
+        manifests: number;
+      }> = [];
+
+      const agg = {
+        totalFiles: 0,
+        totalBytes: 0,
+        languages: {
+          byLanguage: {} as Record<string, { files: number; loc: number; symbols?: { functions: number; classes: number; methods: number } }>,
+          totals: { files: 0, bytes: 0, loc: 0, functions: 0, classes: 0, methods: 0 },
+        },
+        manifests: discovered.length,
+        isMonorepo: true,
+      };
+
+      for (const rootRel of roots) {
+        const subRoot = rootRel === '.' ? repoRoot : path.join(repoRoot, rootRel);
+        const subManifest = await this.buildManifest(subRoot, subRoot);
+        const languages = await computeStats({ repoRoot: subRoot, manifest: subManifest });
+        const { files, bytes } = await this.walk(subRoot);
+
+        perSubproject.push({
+          name: rootRel,
+          totalFiles: files,
+          totalBytes: bytes,
+          languages,
+          manifests: subManifest.length,
+        });
+
+        agg.totalFiles += files;
+        agg.totalBytes += bytes;
+
+        for (const [lang, st] of Object.entries(languages.byLanguage || {})) {
+          const cur = agg.languages.byLanguage[lang] || { files: 0, loc: 0, symbols: { functions: 0, classes: 0, methods: 0 } };
+          agg.languages.byLanguage[lang] = {
+            files: cur.files + (st as any).files,
+            loc: cur.loc + (st as any).loc,
+            symbols: {
+              functions: (cur.symbols?.functions || 0) + ((st as any).symbols?.functions || 0),
+              classes: (cur.symbols?.classes || 0) + ((st as any).symbols?.classes || 0),
+              methods: (cur.symbols?.methods || 0) + ((st as any).symbols?.methods || 0),
+            },
+          };
+        }
+
+        agg.languages.totals.files += languages.totals?.files || 0;
+        agg.languages.totals.bytes += bytes || 0;
+        agg.languages.totals.functions += languages.totals?.functions || 0;
+        agg.languages.totals.classes += languages.totals?.classes || 0;
+        agg.languages.totals.methods += languages.totals?.methods || 0;
+      }
+
+      return { ...agg, perSubproject };
+    }
+
+    const manifest = await this.buildManifest(repoRoot, repoRoot);
+    const languages = await computeStats({ repoRoot, manifest });
     const { files: totalFiles, bytes: totalBytes } = await this.walk(repoRoot);
     const manifests = manifest.length;
-    const isMonorepo = manifests > 1;
-    return { totalFiles, totalBytes, languages: langs, manifests, isMonorepo };
+    const isMonorepo = false;
+    return { totalFiles, totalBytes, languages, manifests, isMonorepo };
   }
 }
