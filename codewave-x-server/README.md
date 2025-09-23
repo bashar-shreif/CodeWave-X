@@ -5,17 +5,14 @@
 - [Tech Stack](#tech-stack)
 - [Diagrams](#diagrams)
 - [Getting Started](#getting-started)
-- [Configuration](#configuration)
-- [Testing](#testing)
-- [CI](#ci)
 - [Documentation](#documentation)
 - [Security](#security)
 
 # Overview
-Primary languages: json, php, javascript.
+Primary languages: json.
 
 # Tech Stack
-Languages: json 59%, php 21%, javascript 10%, css 10%
+Languages: json 100%
 
 # Diagrams
 ```mermaid
@@ -44,18 +41,9 @@ npm ci
 # add your start command
 ```
 
-# Configuration
-Bundler: Vite. CSS tooling: PostCSS, TailwindCSS.
-
-# Testing
-Testing with PHPUnit.
-
-# CI
-CI providers: GitHub Actions. Workflows: .github/workflows/ci-cd.yml.
-
 # Documentation
-Root README at `README.md`. Covered topics: usage, api.
+Root README at `README.md`.
 
 # Security
-Risk score 100/100. Env files present. Sensitive key/cert files detected. CORS wildcard configured in 1 file(s). Debug mode enabled in 4 file(s).
+Risk score 0/100.
 
