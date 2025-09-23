@@ -12,6 +12,10 @@ export const READMEA = {
 
   TIMEOUT_MS: int(process.env.READMEA_TIMEOUT_MS, 90_000),
 
+  LLM_MODEL: process.env.READMEA_LLM_MODEL || 'gpt-4o-mini',
+  LLM_MAX_SECTION_CHARS: int(process.env.READMEA_LLM_MAX_SECTION_CHARS, 600),
+  LLM_TIMEOUT_MS: int(process.env.READMEA_LLM_TIMEOUT_MS, 20_000),
+
   EMBED_BACKEND: (process.env.READMEA_EMBED_BACKEND as EmbedBackend) || 'file',
   EMBED_MODEL: process.env.READMEA_EMBED_MODEL || 'text-embedding-3-large',
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
