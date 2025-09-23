@@ -10,6 +10,7 @@ import { AnalysisService } from '../../services/analysis/analysis.service';
 import { ProjectParamDto } from '../../dto/common/project-param/project-param.dto';
 import { DepsResponseDto } from '../../dto/analysis/deps-response/deps-response.dto';
 import { ErrorResponseDto } from '../../dto/common/error-response/error-response.dto';
+import { SecurityResponseDto } from 'src/dto/analysis/security-response.dto/security-response.dto';
 
 @ApiTags('Analysis')
 @Controller('v1/projects')

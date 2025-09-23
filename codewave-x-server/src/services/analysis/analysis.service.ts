@@ -7,6 +7,7 @@ import {
   DepManagerBlock,
   DependencyItem,
 } from '../../types/analysis/analysis.types';
+import { SecurityResponseDto } from 'src/dto/analysis/security-response.dto/security-response.dto';
 
 @Injectable()
 export class AnalysisService {
@@ -25,7 +26,6 @@ export class AnalysisService {
     }
     const dir = this.paths.resolveArtifactsDir(projectId);
     const file = path.resolve(dir, 'deps.json');
-
     let raw: DepsArtifact | any;
     try {
       raw = await this.json.readJson<DepsArtifact>(file);
@@ -36,14 +36,12 @@ export class AnalysisService {
         details: { projectId },
       });
     }
-
     const managers = this.normalizeManagers(raw || {});
     const totalManagers = managers.length;
     const totalDependencies = managers.reduce(
       (acc, m) => acc + (m.dependencies?.length || 0),
       0,
     );
-
     return {
       projectId,
       generatedAt: raw.generatedAt,
@@ -51,6 +49,30 @@ export class AnalysisService {
       stats: { totalManagers, totalDependencies },
       artifactsDir: dir,
     };
+  }
+
+  async getSecurity(projectId: string): Promise<SecurityResponseDto> {
+    if (!this.paths.existsArtifactsDir(projectId)) {
+      throw new NotFoundException({
+        error: 'not_found',
+        message: 'Artifacts not found',
+        details: { projectId },
+      });
+    }
+    const dir = this.paths.resolveArtifactsDir(projectId);
+    const file = path.resolve(dir, 'security.json');
+    let raw: any;
+    try {
+      raw = await this.json.readJson<any>(file);
+    } catch {
+      throw new NotFoundException({
+        error: 'not_found',
+        message: 'security.json not found',
+        details: { projectId },
+      });
+    }
+    const n = this.normalizeSecurity(raw || {});
+    return { projectId, generatedAt: raw.generatedAt, ...n, artifactsDir: dir };
   }
 
   private normalizeManagers(raw: any): DepManagerBlock[] {
@@ -61,33 +83,24 @@ export class AnalysisService {
         dependencies: this.normalizeDepsArray(m.dependencies),
       }));
     }
-
     const out: DepManagerBlock[] = [];
-
     const rd = this.collectRuntimeDevLists(raw);
     if (rd) out.push(rd);
-
     const npmLike = this.collectNpmLike(raw);
     if (npmLike) out.push(npmLike);
-
     const composer = this.collectComposer(raw);
     if (composer) out.push(composer);
-
     const python = this.collectPython(raw);
     if (python) out.push(python);
-
     const cargo = this.collectCargo(raw);
     if (cargo) out.push(cargo);
-
     const gomod = this.collectGo(raw);
     if (gomod) out.push(gomod);
-
     if (raw.byManager && typeof raw.byManager === 'object') {
       for (const [name, depsAny] of Object.entries(raw.byManager)) {
         out.push({ name, dependencies: this.normalizeDepsArray(depsAny) });
       }
     }
-
     if (!out.length) {
       if (Array.isArray(raw.dependencies)) {
         out.push({
@@ -104,7 +117,6 @@ export class AnalysisService {
         out.push({ name: 'auto', dependencies: arr });
       }
     }
-
     return out;
   }
 
@@ -112,10 +124,8 @@ export class AnalysisService {
     const hasRuntime = Array.isArray(raw.runtime);
     const hasDev = Array.isArray(raw.dev);
     if (!hasRuntime && !hasDev) return null;
-
     const managerName =
       (Array.isArray(raw.pkgManagers) && raw.pkgManagers[0]) || 'npm';
-
     const dependencies: DependencyItem[] = [];
     if (hasRuntime) {
       for (const s of raw.runtime as string[]) {
@@ -135,9 +145,8 @@ export class AnalysisService {
   private parseSpec(spec: string): { name: string; version: string } | null {
     if (typeof spec !== 'string' || !spec.length) return null;
     const idx = spec.lastIndexOf('@');
-    if (idx <= 0 || idx === spec.length - 1) {
+    if (idx <= 0 || idx === spec.length - 1)
       return { name: spec, version: 'latest' };
-    }
     const name = spec.slice(0, idx);
     const version = spec.slice(idx + 1);
     if (!name) return null;
@@ -321,5 +330,76 @@ export class AnalysisService {
       return this.normalizeDepsMap(input);
     }
     return [];
+  }
+
+  private normalizeSecurity(raw: any) {
+    const score = Number(raw.score ?? raw.riskScore ?? raw.risk?.score ?? 0);
+    const envFiles = this.asList(raw.envFiles ?? raw.env?.files);
+    const secretFiles = this.asList(
+      raw.secretFiles ?? raw.secrets?.files ?? raw.sensitiveFiles,
+    );
+    const corsFiles = this.asList(raw.corsFiles ?? raw.cors?.files);
+    const debugFiles = this.asList(raw.debugFiles ?? raw.debug?.files);
+    const keyFiles = this.asList(raw.keyFiles ?? raw.keys?.files);
+    let corsWildcardCount = this.asNum(
+      raw.corsWildcardCount ?? raw.cors?.wildcardCount,
+    );
+    let debugModeCount = this.asNum(raw.debugModeCount ?? raw.debug?.count);
+    let hardcodedKeysCount = this.asNum(
+      raw.hardcodedKeysCount ?? raw.keys?.count,
+    );
+    let vulnerableDepsCount = this.asNum(
+      raw.vulnerableDepsCount ?? raw.vulnDeps?.count,
+    );
+    const notes = this.asList(raw.notes ?? raw.messages);
+    if (
+      (!corsWildcardCount || !debugModeCount || !score) &&
+      typeof raw.summary === 'string'
+    ) {
+      const s = raw.summary as string;
+      const m1 = s.match(/CORS wildcard configured in (\d+)/i);
+      const m2 = s.match(/Debug mode enabled in (\d+)/i);
+      const m3 = s.match(/Risk score (\d+)/i);
+      if (m1) corsWildcardCount = Number(m1[1]);
+      if (m2) debugModeCount = Number(m2[1]);
+      if (m3) raw.score = Number(m3[1]);
+    }
+    const envFilesPresent =
+      envFiles.length > 0 ||
+      /Env files present/i.test(String(raw.summary || ''));
+    const secretFilesDetected =
+      secretFiles.length > 0 ||
+      keyFiles.length > 0 ||
+      /Sensitive key\/cert files detected/i.test(String(raw.summary || ''));
+    return {
+      score: Number(raw.score ?? score) || 0,
+      issues: {
+        envFilesPresent,
+        secretFilesDetected,
+        corsWildcardCount: corsWildcardCount || corsFiles.length || 0,
+        debugModeCount: debugModeCount || debugFiles.length || 0,
+        hardcodedKeysCount: hardcodedKeysCount || keyFiles.length || 0,
+        vulnerableDepsCount: vulnerableDepsCount || 0,
+      },
+      files: {
+        envFiles,
+        secretFiles,
+        corsFiles,
+        debugFiles,
+        keyFiles,
+      },
+      notes,
+    };
+  }
+
+  private asList(v: any): string[] {
+    if (!v) return [];
+    if (Array.isArray(v)) return v.map(String);
+    return [];
+  }
+
+  private asNum(v: any): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
   }
 }
