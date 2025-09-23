@@ -4,6 +4,8 @@ import { ManifestDiscoveryService } from '../manifest-discovery/manifest-discove
 import { summarizeDependencies } from '../../readme-agent/tools/summarize-dependencies';
 import { summarizeSecurity } from '../../readme-agent/tools/summarize-security';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
+import scanLanguages from 'src/readme-agent/tools/scan-languages';
 
 type DepObj = { name: string; version: string; type: string };
 
@@ -209,5 +211,45 @@ export class RunToolsService {
       targets,
       aggregate,
     };
+  }
+
+  private async walk(root: string) {
+    let files = 0;
+    let bytes = 0;
+    const stack = [root];
+    while (stack.length) {
+      const cur = stack.pop() as string;
+      const ents = await fs.promises
+        .readdir(cur, { withFileTypes: true })
+        .catch(() => []);
+      for (const e of ents) {
+        const p = path.join(cur, e.name);
+        if (e.isDirectory()) {
+          if (
+            e.name === '.git' ||
+            e.name === 'node_modules' ||
+            e.name === 'vendor' ||
+            e.name === 'dist' ||
+            e.name === 'build'
+          )
+            continue;
+          stack.push(p);
+        } else if (e.isFile()) {
+          files += 1;
+          bytes += (await fs.promises.stat(p).catch(() => ({ size: 0 }))).size;
+        }
+      }
+    }
+    return { files, bytes };
+  }
+
+  async runStats(opts: { projectId: string; force?: boolean }) {
+    const repoRoot = this.paths.resolveWorkspaceDir(opts.projectId);
+    const manifest = await this.manifests.discover(repoRoot);
+    const langs = await scanLanguages({ repoRoot, manifest });
+    const { files: totalFiles, bytes: totalBytes } = await this.walk(repoRoot);
+    const manifests = manifest.length;
+    const isMonorepo = manifests > 1;
+    return { totalFiles, totalBytes, languages: langs, manifests, isMonorepo };
   }
 }
