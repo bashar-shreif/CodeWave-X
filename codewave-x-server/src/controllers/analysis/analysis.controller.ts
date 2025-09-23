@@ -16,6 +16,10 @@ import {
   StacksResultDto,
 } from 'src/dto/analysis/stacks-response.dto/stacks-response.dto';
 import { ProjectParamDto } from 'src/dto/common/project-param/project-param.dto';
+import {
+  GetLanguagesResponseDto,
+  LanguagesResultDto,
+} from 'src/dto/analysis/languages-response.dto/languages-response.dto';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -133,5 +137,42 @@ export class AnalysisController {
     };
   }
 
-  
+  @Get('languages')
+  @ApiOperation({ summary: 'Get language distribution' })
+  @ApiOkResponse({ type: GetLanguagesResponseDto })
+  async getLanguages(
+    @Param('projectId') pid: string,
+  ): Promise<GetLanguagesResponseDto> {
+    const t0 = Date.now();
+    const res = await this.run.runLanguages({ projectId: pid });
+    const tookMs = Date.now() - t0;
+
+    const isMono = !!res && Array.isArray((res as any).perSubproject);
+    if (isMono) {
+      const per = (res as any).perSubproject.map((p: any) => ({
+        name: p.name,
+        distribution: p.distribution ?? {},
+      }));
+      return {
+        projectId: pid,
+        status: 'ok',
+        tookMs,
+        result: {
+          isMonorepo: true,
+          aggregated: (res as any).aggregated ?? {},
+          perSubproject: per,
+        },
+      };
+    }
+
+    return {
+      projectId: pid,
+      status: 'ok',
+      tookMs,
+      result: {
+        isMonorepo: false,
+        aggregated: (res as any)?.aggregated ?? {},
+      },
+    };
+  }
 }

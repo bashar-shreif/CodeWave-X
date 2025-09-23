@@ -1,19 +1,29 @@
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import * as crypto from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ProjectPathService } from '../project-path/project-path.service';
 import { ManifestDiscoveryService } from '../manifest-discovery/manifest-discovery.service';
 import { summarizeDependencies } from '../../readme-agent/tools/summarize-dependencies';
 import { summarizeSecurity } from '../../readme-agent/tools/summarize-security';
-import * as path from 'node:path';
-import * as fs from 'node:fs';
-import * as fsp from 'node:fs/promises';
-import * as crypto from 'node:crypto';
 import scanLanguages from 'src/readme-agent/tools/scan-languages';
 import { computeStats } from 'src/readme-agent/tools/compute-stats';
 import detectStack from 'src/readme-agent/tools/detect-stacks';
 import { ManifestEntry } from 'src/readme-agent/types/tools/manifest.type';
+import { ScanLanguagesOutput } from 'src/readme-agent/types/tools/io.type';
 
 type DepObj = { name: string; version: string; type: string };
-
+const IGNORE_DIRS = new Set([
+  '.git',
+  'node_modules',
+  'vendor',
+  'dist',
+  'build',
+  'out',
+  '.next',
+  '.cache',
+]);
 const normalizeDeps = (val: unknown, defaultType: string): DepObj[] => {
   if (!val) return [];
   if (Array.isArray(val)) {
@@ -47,6 +57,14 @@ const normalizeDeps = (val: unknown, defaultType: string): DepObj[] => {
     return out;
   }
   return [];
+};
+
+type LangDistribution = Record<string, number>;
+type SubprojectLang = { name: string; distribution: LangDistribution };
+type LanguagesResult = {
+  isMonorepo: boolean;
+  aggregated: LangDistribution;
+  perSubproject: SubprojectLang[];
 };
 
 @Injectable()
@@ -478,5 +496,76 @@ export class RunToolsService {
 
     const aggregated = Array.from(new Set(per.flatMap((p) => p.stacks))).sort();
     return { isMonorepo: groups.size > 1, aggregated, perSubproject: per };
+  }
+
+  private toDistribution(scan: any): Record<string, number> {
+    const src = scan?.byLanguage ?? scan?.languages?.byLanguage ?? {};
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(src)) {
+      if (typeof v === 'number') out[k] = v;
+      else if (
+        v &&
+        typeof v === 'object' &&
+        typeof (v as any).files === 'number'
+      )
+        out[k] = (v as any).files;
+    }
+    return out;
+  }
+
+  private mergeDistributions(
+    dists: Record<string, number>[],
+  ): Record<string, number> {
+    const acc: Record<string, number> = {};
+    for (const d of dists)
+      for (const [k, n] of Object.entries(d)) acc[k] = (acc[k] ?? 0) + n;
+    return acc;
+  }
+
+  async runLanguages(opts: { projectId: string }) {
+    const repoRoot = this.manifests.resolveWorkspaceDir(opts.projectId);
+    const groups = await this.manifests.discoverGrouped(repoRoot);
+
+    if (groups.length === 0) {
+      const manifest = await this.manifests.discoverAllFiles(repoRoot); // Use all files
+      const scan = await scanLanguages({ repoRoot, manifest });
+      const distribution = this.toDistribution(scan);
+
+      return {
+        isMonorepo: false,
+        aggregated: distribution,
+        perSubproject: [
+          {
+            name: path.basename(repoRoot),
+            distribution,
+          },
+        ],
+      };
+    }
+
+    const scans = await Promise.all(
+      groups.map(async (group) => {
+        const manifest = await this.manifests.discoverAllFiles(group.dir);
+        return scanLanguages({
+          repoRoot: group.dir,
+          manifest,
+        });
+      }),
+    );
+
+    const perSubproject = groups.map((group, i) => ({
+      name: group.name,
+      distribution: this.toDistribution(scans[i]),
+    }));
+
+    const aggregated = this.mergeDistributions(
+      perSubproject.map((p) => p.distribution),
+    );
+
+    return {
+      isMonorepo: groups.length > 1,
+      aggregated,
+      perSubproject,
+    };
   }
 }
