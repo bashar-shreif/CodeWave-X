@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { embedIndexPathFor } from '../agent/config';
 import { loadIndex, cosine } from './helpers';
-import type { EmbedIndex } from '../../types/retrieval/retrieval.types';
+import type { EmbedIndex } from '../types/retrieval/retrieval.types';
 import { embedTexts } from './providerEmbed.util';
 
 export type RetrieveInput = {

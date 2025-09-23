@@ -62,6 +62,8 @@ codewave-x-server/dist/**
 codewave-x-server/.env
 
 
-codewave-x-server/src/workspace/
+codewave-x-server/src/workspaces
 codewave-x-server/src/uploads/
 codewave-x-server/node_modules/
+codewave-x-server/scripts/
+codewave-x-server/artifacts/

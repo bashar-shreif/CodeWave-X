@@ -8,7 +8,7 @@ import {
   ensureDir,
   isFreshIndex,
 } from '../../retrieval/helpers';
-import type { EmbedIndex } from '../../../types/retrieval/retrieval.types';
+import type { EmbedIndex } from '../../types/retrieval/retrieval.types';
 import { ChromaClient } from '../../retrieval/chroma.client';
 import { embedTexts } from '../../retrieval/providerEmbed.util';
 import {

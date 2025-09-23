@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
-import type { EmbedIndex } from '../../types/retrieval/retrieval.types';
+import type { EmbedIndex } from '../types/retrieval/retrieval.types';
 
 export const toPosix = (p: string) => p.replace(/\\/g, '/');
 
