@@ -9,6 +9,7 @@ import * as fsp from 'node:fs/promises';
 import * as crypto from 'node:crypto';
 import scanLanguages from 'src/readme-agent/tools/scan-languages';
 import { computeStats } from 'src/readme-agent/tools/compute-stats';
+import detectStack from 'src/readme-agent/tools/detect-stacks';
 
 type DepObj = { name: string; version: string; type: string };
 
@@ -443,5 +444,64 @@ export class RunToolsService {
       files,
       isMonorepo: false,
     };
+  }
+
+  async runStacks(opts: { projectId: string }) {
+    const repoRoot = this.paths.resolveWorkspaceDir(opts.projectId);
+    const discovered = await this.manifests.discover(repoRoot);
+    const roots = Array.from(
+      new Set(
+        discovered.map((m) => {
+          const d = path.dirname(m.path);
+          return d === '' || d === '.' ? '.' : d;
+        }),
+      ),
+    );
+
+    const agg = new Set<string>();
+
+    if (roots.length > 1) {
+      const per = [];
+      for (const rootRel of roots) {
+        const subRoot =
+          rootRel === '.' ? repoRoot : path.join(repoRoot, rootRel);
+        const subManifest = discovered.filter((m) =>
+          rootRel === '.' ? true : m.path.startsWith(rootRel + path.sep),
+        );
+        const out: any = await detectStack({
+          repoRoot: subRoot,
+          manifest: subManifest,
+        });
+        const stacks = new Set<string>();
+        if (Array.isArray(out?.hits))
+          for (const h of out.hits) {
+            const n = h?.stack ?? h?.name ?? h?.id;
+            if (n) stacks.add(String(n));
+          }
+        if (Array.isArray(out?.frameworks))
+          for (const n of out.frameworks) stacks.add(String(n));
+        const stacksArr = Array.from(stacks);
+        stacksArr.forEach((s) => agg.add(s));
+        per.push({ name: rootRel, stacks: stacksArr, raw: out } as never);
+      }
+      return {
+        isMonorepo: true,
+        aggregated: { stacks: Array.from(agg) },
+        perSubproject: per,
+      };
+    }
+
+    const out: any = await detectStack({ repoRoot, manifest: discovered });
+    const stacks = new Set<string>();
+    if (Array.isArray(out?.hits))
+      for (const h of out.hits) {
+        const n = h?.stack ?? h?.name ?? h?.id;
+        if (n) stacks.add(String(n));
+      }
+    if (Array.isArray(out?.frameworks))
+      for (const n of out.frameworks) stacks.add(String(n));
+    const stacksArr = Array.from(stacks);
+    stacksArr.forEach((s) => agg.add(s));
+    return { isMonorepo: false, aggregated: { stacks: Array.from(agg) } };
   }
 }
