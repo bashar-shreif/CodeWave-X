@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
+import { registerCommands } from './commands';
 
-export function activate(context: vscode.ExtensionContext) {
-	console.log('Congratulations, your extension "codewave-x" is now active!');
+export function activate(ctx: vscode.ExtensionContext) {
+	console.log('CodeWave-X is now active!');
 	
+	//commands
+	registerCommands(ctx);
 }
 
 export function deactivate() {}

@@ -14,7 +14,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "codewave-x.uploadCodebase",
+        "command": "codewave.uploadCodebase",
         "title": "Upload",
         "category": "CodeWave-X"
       }
