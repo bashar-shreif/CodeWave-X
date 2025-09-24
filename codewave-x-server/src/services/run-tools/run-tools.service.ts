@@ -18,6 +18,7 @@ import summarizeConfig from 'src/readme-agent/tools/summarize-config';
 import summarizeDocs from 'src/readme-agent/tools/summarize-docs';
 import summarizeRoutes from 'src/readme-agent/tools/summarize-routes';
 import summarizeTests from 'src/readme-agent/tools/summarize-tests';
+import { compileReadmeGraph } from 'src/readme-agent/agent/graph';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -1576,5 +1577,21 @@ export class RunToolsService {
     return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
   }
 
-
+  async runReadmeNoLlm(repoRoot: string, projectId: string) {
+    const graph = compileReadmeGraph();
+    const state: any = await graph.invoke({ repoRoot });
+    const text = String(
+      state?.readme?.final?.text ??
+        state?.readme?.final ??
+        state?.final?.readme ??
+        state?.outputs?.readme ??
+        state?.artifacts?.['README.md']?.content ??
+        (Array.isArray(state?.artifacts)
+          ? state.artifacts.find((a: any) => /README\.md$/i.test(a?.path))
+              ?.content
+          : '') ??
+        '',
+    );
+    return { text, length: text.length };
+  }
 }
