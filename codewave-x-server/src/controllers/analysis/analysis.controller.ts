@@ -26,6 +26,7 @@ import path from 'path';
 import * as fs from 'fs';
 import { CiResponseDto } from 'src/dto/analysis/ci-response.dto/ci-response.dto';
 import { ConfigResponseDto } from 'src/dto/analysis/config-response.dto/config-response.dto';
+import { DocsResponseDto } from 'src/dto/analysis/docs-response.dto/docs-response.dto';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -381,5 +382,60 @@ export class AnalysisController {
       .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
   }
 
-  
+  @Get(':projectId/docs')
+  @ApiOperation({ summary: 'Summarize docs: readmes, docs tree, topics' })
+  @ApiOkResponse({
+    type: DocsResponseDto,
+    schema: {
+      example: {
+        projectId: 'job_001',
+        status: 'ok',
+        tookMs: 24,
+        result: {
+          isMonorepo: true,
+          aggregated: {
+            readmes: ['README.md', 'backend/README.md'],
+            topics: ['Setup', 'Deployment', 'API', 'Contributing'],
+            docsCount: 5,
+          },
+          perSubproject: [
+            {
+              name: 'frontend',
+              readmes: ['README.md'],
+              docs: ['docs/intro.md', 'docs/deploy.md'],
+              topics: ['Setup', 'Deployment'],
+            },
+            {
+              name: 'backend',
+              readmes: ['README.md'],
+              docs: ['docs/api.md', 'docs/contributing.md', 'mkdocs.yml'],
+              topics: ['API', 'Contributing'],
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async docs(@Param('projectId') projectId: string, @Res() res) {
+    const started = Date.now();
+    const rootBase =
+      process.env.READMEA_WORKSPACES_ROOT ||
+      path.join(__dirname, '..', 'workspaces');
+    const repoRoot = path.join(rootBase, projectId);
+    if (!fs.existsSync(repoRoot)) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        projectId,
+        status: 'error',
+        tookMs: Date.now() - started,
+        error: 'not_found',
+        message: 'Workspace not found',
+        details: { repoRoot },
+      });
+    }
+    const result = await this.run.runDocs(repoRoot);
+    return res
+      .status(HttpStatus.OK)
+      .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
+  }
 }
