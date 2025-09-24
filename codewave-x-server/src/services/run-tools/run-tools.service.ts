@@ -15,6 +15,7 @@ import { ScanLanguagesOutput } from 'src/readme-agent/types/tools/io.type';
 import { summarizeArchitecture } from 'src/readme-agent/tools/summarize-architecture';
 import { summarizeCI } from 'src/readme-agent/tools/summarize-ci';
 import summarizeConfig from 'src/readme-agent/tools/summarize-config';
+import summarizeDocs from 'src/readme-agent/tools/summarize-docs';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -1178,6 +1179,97 @@ export class RunToolsService {
           new Set(perSubproject.flatMap((s) => s.env.variables)),
         ),
       },
+    };
+
+    return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
+  }
+
+  async runDocs(repoRoot: string) {
+    const entries: ManifestEntry[] = await this.manifests.walk(repoRoot);
+    const manifestNames = new Set([
+      'package.json',
+      'composer.json',
+      'pyproject.toml',
+      'go.mod',
+      'Cargo.toml',
+      'Gemfile',
+      'pom.xml',
+      'build.gradle',
+      'build.gradle.kts',
+    ]);
+    const dirs = new Set<string>();
+    for (const e of entries) {
+      const bn = path.basename(e.path);
+      if (manifestNames.has(bn)) dirs.add(path.dirname(e.path));
+    }
+    const subDirs = dirs.size ? Array.from(dirs) : ['.'];
+
+    const isDocFile = (p: string) => {
+      const base = path.basename(p).toLowerCase();
+      if (/^readme(\.[a-z0-9]+)?$/.test(base)) return true;
+      if (
+        /(^|\/)(docs?|wiki|guides|manual|handbook|documentation)\//i.test(p)
+      ) {
+        return /\.(md|mdx|rst|adoc|txt|html)$/i.test(p);
+      }
+      if (/^(mkdocs\.y[a]?ml|docusaurus\.config\.(js|ts|cjs|mjs))$/i.test(base))
+        return true;
+      return false;
+    };
+
+    const perSubproject: {
+      name: string;
+      readmes: string[];
+      docs: string[];
+      topics: string[];
+    }[] = [];
+
+    for (const rel of subDirs) {
+      const name = rel === '.' ? path.basename(repoRoot) : path.basename(rel);
+      const subAbs = path.join(repoRoot, rel);
+      const manifest =
+        rel === '.'
+          ? entries
+          : entries
+              .filter((en) => en.path.startsWith(rel + path.sep))
+              .map<ManifestEntry>((en) => ({
+                path: en.path.slice(rel.length + 1),
+                size: en.size,
+                hash: en.hash,
+              }));
+      const pathsRel = manifest.map((m) => m.path.replace(/\\/g, '/'));
+
+      const out: any = await summarizeDocs(subAbs);
+
+      const toolReadmes = this.toStrings(
+        out?.readmes ?? out?.readme ?? out?.topReadmes,
+      );
+      const toolDocs = this.toStrings(
+        out?.docs ?? out?.documents ?? out?.files,
+      );
+      const toolTopics = this.toStrings(
+        out?.topics ?? out?.coverage ?? out?.areas,
+      );
+
+      const scanReadmes = pathsRel.filter((p) =>
+        /^readme(\.[a-z0-9]+)?$/i.test(path.basename(p)),
+      );
+      const scanDocs = pathsRel.filter(
+        (p) =>
+          isDocFile(p) && !/^readme(\.[a-z0-9]+)?$/i.test(path.basename(p)),
+      );
+
+      const readmes = Array.from(new Set([...toolReadmes, ...scanReadmes]));
+      const docs = Array.from(new Set([...toolDocs, ...scanDocs]));
+      const topics = Array.from(new Set(toolTopics));
+
+      perSubproject.push({ name, readmes, docs, topics });
+    }
+
+    const aggregated = {
+      readmes: Array.from(new Set(perSubproject.flatMap((s) => s.readmes))),
+      topics: Array.from(new Set(perSubproject.flatMap((s) => s.topics))),
+      docsCount: perSubproject.reduce((n, s) => n + s.docs.length, 0),
     };
 
     return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
