@@ -17,6 +17,7 @@ import { summarizeCI } from 'src/readme-agent/tools/summarize-ci';
 import summarizeConfig from 'src/readme-agent/tools/summarize-config';
 import summarizeDocs from 'src/readme-agent/tools/summarize-docs';
 import summarizeRoutes from 'src/readme-agent/tools/summarize-routes';
+import summarizeTests from 'src/readme-agent/tools/summarize-tests';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -1389,5 +1390,189 @@ export class RunToolsService {
       aggregated: { count, httpMethods, apiCount, webCount },
       perSubproject,
     };
+  }
+
+  async runTests(repoRoot: string) {
+    const entries: ManifestEntry[] = await this.manifests.walk(repoRoot);
+    const manifestNames = new Set([
+      'package.json',
+      'composer.json',
+      'pyproject.toml',
+      'go.mod',
+      'Cargo.toml',
+      'Gemfile',
+      'pom.xml',
+      'build.gradle',
+      'build.gradle.kts',
+    ]);
+    const dirs = new Set<string>();
+    for (const e of entries) {
+      const bn = path.basename(e.path);
+      if (manifestNames.has(bn)) dirs.add(path.dirname(e.path));
+    }
+    const subDirs = dirs.size ? Array.from(dirs) : ['.'];
+
+    const readJson = async (abs: string) => {
+      try {
+        return JSON.parse(await fsp.readFile(abs, 'utf8'));
+      } catch {
+        return null;
+      }
+    };
+
+    const detectFrameworksFromPkg = (pkg: any) => {
+      const keys = new Set<string>();
+      const pull = (o: any) => {
+        if (o && typeof o === 'object')
+          Object.keys(o).forEach((k) => keys.add(k.toLowerCase()));
+      };
+      pull(pkg?.dependencies);
+      pull(pkg?.devDependencies);
+      pull(pkg?.peerDependencies);
+      pull(pkg?.optionalDependencies);
+      const scripts = pkg?.scripts
+        ? Object.values<string>(pkg.scripts).join(' ').toLowerCase()
+        : '';
+      const has = (k: string) =>
+        Array.from(keys).some(
+          (x) => x === k || x.startsWith(k + '-') || x.includes('/' + k),
+        ) || scripts.includes(k);
+      const out: string[] = [];
+      if (has('jest')) out.push('Jest');
+      if (has('vitest')) out.push('Vitest');
+      if (has('mocha')) out.push('Mocha');
+      if (has('chai')) out.push('Chai');
+      if (has('ava')) out.push('AVA');
+      if (has('karma')) out.push('Karma');
+      if (has('@testing-library')) out.push('Testing Library');
+      if (has('cypress')) out.push('Cypress');
+      if (has('@playwright/test') || has('playwright')) out.push('Playwright');
+      return Array.from(new Set(out));
+    };
+
+    const detectFrameworksFromFiles = (paths: string[]) => {
+      const out: string[] = [];
+      const test = (re: RegExp) => paths.some((p) => re.test(p));
+      if (test(/(^|\/)jest\.config\.(js|ts|cjs|mjs)$/i)) out.push('Jest');
+      if (test(/(^|\/)vitest\.config\.(js|ts|cjs|mjs)$/i)) out.push('Vitest');
+      if (test(/(^|\/)karma\.conf\.(js|ts)$/i)) out.push('Karma');
+      if (
+        test(/(^|\/)cypress\.config\.(js|ts|cjs|mjs)$/i) ||
+        test(/(^|\/)cypress\/config\./i)
+      )
+        out.push('Cypress');
+      if (test(/(^|\/)playwright\.config\.(js|ts)$/i)) out.push('Playwright');
+      if (test(/(^|\/)phpunit\.xml(\.dist)?$/i)) out.push('PHPUnit');
+      if (
+        test(/(^|\/)pytest\.ini$/i) ||
+        test(/(^|\/)tox\.ini$/i) ||
+        test(/(^|\/)setup\.cfg$/i)
+      )
+        out.push('pytest');
+      if (test(/(^|\/)build\.gradle(\.kts)?$/i)) out.push('JUnit');
+      return Array.from(new Set(out));
+    };
+
+    const collectTestFiles = (paths: string[]) => {
+      const picks: string[] = [];
+      for (const p of paths) {
+        const np = p.replace(/\\/g, '/');
+        const b = path.basename(np).toLowerCase();
+        if (/(^|\/)__tests__\//i.test(np)) {
+          picks.push(np);
+          continue;
+        }
+        if (/\.(test|spec)\.(js|jsx|ts|tsx|mjs|cjs)$/i.test(b)) {
+          picks.push(np);
+          continue;
+        }
+        if (/^test_.*\.py$/i.test(b) || /.*_test\.py$/i.test(b)) {
+          picks.push(np);
+          continue;
+        }
+        if (/.*_test\.go$/i.test(b)) {
+          picks.push(np);
+          continue;
+        }
+        if (
+          /.*test\.php$/i.test(b) ||
+          (/(^|\/)tests?\//i.test(np) && /\.php$/i.test(b))
+        ) {
+          picks.push(np);
+          continue;
+        }
+        if (/(^|\/)src\/test\//i.test(np)) {
+          picks.push(np);
+          continue;
+        }
+        if (/(^|\/)tests\//i.test(np) && /\.rs$/i.test(b)) {
+          picks.push(np);
+          continue;
+        }
+      }
+      return picks;
+    };
+
+    const perSubproject: {
+      name: string;
+      frameworks: string[];
+      totals: { count: number };
+      files: string[];
+    }[] = [];
+
+    for (const rel of subDirs) {
+      const name = rel === '.' ? path.basename(repoRoot) : path.basename(rel);
+      const subAbs = path.join(repoRoot, rel);
+      const manifest =
+        rel === '.'
+          ? entries
+          : entries
+              .filter((en) => en.path.startsWith(rel + path.sep))
+              .map<ManifestEntry>((en) => ({
+                path: en.path.slice(rel.length + 1),
+                size: en.size,
+                hash: en.hash,
+              }));
+      const pathsRel = manifest.map((m) => m.path.replace(/\\/g, '/'));
+
+      const out: any = await summarizeTests(subAbs);
+      const toolFrameworks = Array.from(
+        new Set(this.toStrings(out?.frameworks ?? out?.tools)),
+      );
+      const toolFiles = Array.isArray(out?.locations)
+        ? this.toStrings(out.locations)
+        : [];
+
+      const pkgRel = pathsRel.find((p) => p === 'package.json');
+      const pkg = pkgRel ? await readJson(path.join(subAbs, pkgRel)) : null;
+
+      const fw = Array.from(
+        new Set([
+          ...toolFrameworks,
+          ...detectFrameworksFromPkg(pkg),
+          ...detectFrameworksFromFiles(pathsRel),
+        ]),
+      );
+
+      const files = Array.from(
+        new Set([
+          ...toolFiles.filter((s) => s.includes('/')),
+          ...collectTestFiles(pathsRel),
+        ]),
+      ).slice(0, 200);
+
+      const totals = { count: files.length };
+
+      perSubproject.push({ name, frameworks: fw, totals, files });
+    }
+
+    const aggregated = {
+      count: perSubproject.reduce((n, s) => n + s.totals.count, 0),
+      frameworks: Array.from(
+        new Set(perSubproject.flatMap((s) => s.frameworks)),
+      ),
+    };
+
+    return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
   }
 }
