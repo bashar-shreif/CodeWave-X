@@ -18,7 +18,7 @@ import summarizeConfig from 'src/readme-agent/tools/summarize-config';
 import summarizeDocs from 'src/readme-agent/tools/summarize-docs';
 import summarizeRoutes from 'src/readme-agent/tools/summarize-routes';
 import summarizeTests from 'src/readme-agent/tools/summarize-tests';
-import { compileReadmeGraph } from 'src/readme-agent/agent/graph';
+import graph, { compileReadmeGraph } from 'src/readme-agent/agent/graph';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -1577,21 +1577,51 @@ export class RunToolsService {
     return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
   }
 
-  async runReadmeNoLlm(repoRoot: string, projectId: string) {
-    const graph = compileReadmeGraph();
+  findString(o: any, pred: (s: string) => boolean): string | null {
+    if (!o) return null;
+    if (typeof o === 'string') return pred(o) ? o : null;
+    if (Array.isArray(o)) {
+      for (const v of o) {
+        const r = this.findString(v, pred);
+        if (r) return r;
+      }
+      return null;
+    }
+    if (typeof o === 'object') {
+      for (const v of Object.values(o)) {
+        const r = this.findString(v, pred);
+        if (r) return r;
+      }
+    }
+    return null;
+  }
+
+  extractFromArtifacts(a: any): string | null {
+    if (!a) return null;
+    if (Array.isArray(a)) {
+      const hit = a.find(
+        (x: any) => typeof x?.path === 'string' && /README\.md$/i.test(x.path),
+      );
+      const v = hit?.content ?? hit?.text ?? hit?.data;
+      return typeof v === 'string' ? v : null;
+    }
+    if (typeof a === 'object') {
+      const key = Object.keys(a).find((k) => /README\.md$/i.test(k));
+      const v = key ? a[key] : null;
+      if (typeof v === 'string') return v;
+      if (v && typeof v?.content === 'string') return v.content;
+      if (v && typeof v?.text === 'string') return v.text;
+    }
+    return null;
+  }
+
+  async runReadmeNoAi(repoRoot: string, projectId: string) {
     const state: any = await graph.invoke({ repoRoot });
-    const text = String(
-      state?.readme?.final?.text ??
-        state?.readme?.final ??
-        state?.final?.readme ??
-        state?.outputs?.readme ??
-        state?.artifacts?.['README.md']?.content ??
-        (Array.isArray(state?.artifacts)
-          ? state.artifacts.find((a: any) => /README\.md$/i.test(a?.path))
-              ?.content
-          : '') ??
-        '',
-    );
+    const text =
+      (typeof state?.final?.markdown === 'string' && state.final.markdown) ||
+      (typeof state?.final?.text === 'string' && state.final.text) ||
+      (typeof state?.final === 'string' && state.final) ||
+      '';
     return { text, length: text.length };
   }
 }

@@ -581,39 +581,42 @@ export class AnalysisController {
       .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
   }
 
-
-@Get(':projectId/readme/no-llm')
-@ApiOperation({ summary: 'Compose a README from tool outputs without LLMs' })
-@ApiOkResponse({
-  type: ReadmeNoLlmResponseDto,
-  schema: {
-    example: {
-      projectId: 'job_001',
-      status: 'ok',
-      tookMs: 120,
-      result: {
-        text: "# job_001\n\n![security](https://img.shields.io/badge/security-85-blue) ![structure](https://img.shields.io/badge/repo-monorepo-informational)\n\n## Overview\n- Modular backend service with REST API\n\n## Tech Stack\n- React\n- Laravel\n\n## Stats\n- Files: 1240\n- Size: 3456789 bytes\n- Languages: .ts: 800, .php: 300, .json: 50\n\n## Dependencies\n- Runtime: 45\n- Dev: 32\n- Tools: 6\n\n## Build & Config\n- Bundlers: Vite, Laravel Mix\n- CSS tools: Tailwind CSS, PostCSS\n\n## Environment\n- Files: .env, .env.local\n- Variables: API_URL, NODE_ENV, DB_HOST\n\n## CI\n- Providers: github-actions\n\n## Documentation\n- READMEs: README.md, backend/README.md\n- Docs files: 5\n\n## Routes\n- Total: 20 (GET, POST)\n\n## Tests\n- Frameworks: Jest, PHPUnit\n- Test files: 42",
-        length: 650
-      }
+  @Get('readme/no-ai')
+  @ApiOperation({ summary: 'Compose a README from tool outputs without LLMs' })
+  @ApiOkResponse({
+    type: ReadmeNoLlmResponseDto,
+    schema: {
+      example: {
+        projectId: 'job_001',
+        status: 'ok',
+        tookMs: 120,
+        result: {
+          text: '# job_001\n\n![security](https://img.shields.io/badge/security-85-blue) ![structure](https://img.shields.io/badge/repo-monorepo-informational)\n\n## Overview\n- Modular backend service with REST API\n\n## Tech Stack\n- React\n- Laravel\n\n## Stats\n- Files: 1240\n- Size: 3456789 bytes\n- Languages: .ts: 800, .php: 300, .json: 50\n\n## Dependencies\n- Runtime: 45\n- Dev: 32\n- Tools: 6\n\n## Build & Config\n- Bundlers: Vite, Laravel Mix\n- CSS tools: Tailwind CSS, PostCSS\n\n## Environment\n- Files: .env, .env.local\n- Variables: API_URL, NODE_ENV, DB_HOST\n\n## CI\n- Providers: github-actions\n\n## Documentation\n- READMEs: README.md, backend/README.md\n- Docs files: 5\n\n## Routes\n- Total: 20 (GET, POST)\n\n## Tests\n- Frameworks: Jest, PHPUnit\n- Test files: 42',
+          length: 650,
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async readmeNoLlm(@Param('projectId') projectId: string, @Res() res) {
+    const started = Date.now();
+    const rootBase =
+      process.env.READMEA_WORKSPACES_ROOT ||
+      path.join(__dirname, '..', 'workspaces');
+    const repoRoot = path.join(rootBase, projectId);
+    if (!fs.existsSync(repoRoot)) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        projectId,
+        status: 'error',
+        tookMs: Date.now() - started,
+        error: 'not_found',
+        message: 'Workspace not found',
+        details: { repoRoot },
+      });
     }
+    const result = await this.run.runReadmeNoAi(repoRoot, projectId);
+    return res
+      .status(HttpStatus.OK)
+      .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
   }
-})
-@ApiResponse({ status: 404, description: 'Workspace not found' })
-async readmeNoLlm(@Param('projectId') projectId: string, @Res() res) {
-  const started = Date.now();
-  const rootBase = process.env.READMEA_WORKSPACES_ROOT || path.join(__dirname, '..', 'workspaces');
-  const repoRoot = path.join(rootBase, projectId);
-  if (!fs.existsSync(repoRoot)) {
-    return res.status(HttpStatus.NOT_FOUND).json({
-      projectId,
-      status: 'error',
-      tookMs: Date.now() - started,
-      error: 'not_found',
-      message: 'Workspace not found',
-      details: { repoRoot }
-    });
-  }
-  const result = await this.run.runReadmeNoLlm(repoRoot, projectId);
-  return res.status(HttpStatus.OK).json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
-}
 }

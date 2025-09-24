@@ -17,25 +17,53 @@ import { emitArtifactsNode } from '../nodes/emitArtifacts.node';
 import { aggregateSubprojectsNode } from '../nodes/aggregateSubproject.node';
 import { buildEmbeddingsNode } from '../nodes/buildEmbeddings.node';
 
+const tap = (name: string, fn: any) => async (s: any, c: any) => {
+  console.log(`[IN  ${name}] keys:`, Object.keys(s || {}));
+  const out = await fn(s, c);
+  const preview =
+    typeof out?.readme?.final === 'string'
+      ? out.readme.final.slice(0, 120)
+      : typeof out?.artifacts === 'object'
+        ? 'artifacts:' +
+          (Array.isArray(out.artifacts)
+            ? out.artifacts.length
+            : Object.keys(out.artifacts).length)
+        : '';
+  console.log(`[OUT ${name}] keys:`, Object.keys(out || {}), preview);
+  return out;
+};
+
 export const compileReadmeGraph = () => {
   const g = new StateGraph(Channels);
 
-  g.addNode('Routes', routesNode);
-  g.addNode('Deps', depsNode);
-  g.addNode('IngestRepo', ingestRepoNode);
-  g.addNode('Scan', scanNode);
-  g.addNode('Architecture', architectureNode);
-  g.addNode('Tests', testsNode);
-  g.addNode('Config', configNode);
-  g.addNode('CI', ciNode);
-  g.addNode('Docs', docsNode);
-  g.addNode('Security', securityNode);
-  g.addNode('MergeSignals', mergeSignalsNode);
-  g.addNode('AggregateSubprojects', aggregateSubprojectsNode);
-  g.addNode('BuildEmbeddings', buildEmbeddingsNode);
-  g.addNode('WriteSections', writeSectionsNode);
-  g.addNode('Finalize', finalizeNode);
-  g.addNode('EmitArtifacts', emitArtifactsNode);
+  g.addNode('Routes', tap('Routes', routesNode));
+  g.addNode('Deps', tap('Deps', depsNode));
+  g.addNode('IngestRepo', tap('IngestRepo', ingestRepoNode));
+  g.addNode('Scan', tap('Scan', scanNode));
+  g.addNode('Architecture', tap('Architecture', architectureNode));
+  g.addNode('Tests', tap('Tests', testsNode));
+  g.addNode('Config', tap('Config', configNode));
+  g.addNode('CI', tap('CI', ciNode));
+  g.addNode('Docs', tap('Docs', docsNode));
+  g.addNode('Security', tap('Security', securityNode));
+  g.addNode('MergeSignals', tap('MergeSignals', mergeSignalsNode));
+  g.addNode('WriteSections', tap('WriteSections', writeSectionsNode));
+  g.addNode('Finalize', tap('Finalize', finalizeNode));
+
+  // g.addNode('Routes', routesNode);
+  // g.addNode('Deps', depsNode);
+  // g.addNode('IngestRepo', ingestRepoNode);
+  // g.addNode('Scan', scanNode);
+  // g.addNode('Architecture', architectureNode);
+  // g.addNode('Tests', testsNode);
+  // g.addNode('Config', configNode);
+  // g.addNode('CI', ciNode);
+  // g.addNode('Docs', docsNode);
+  // g.addNode('Security', securityNode);
+  // g.addNode('MergeSignals', mergeSignalsNode);
+  // g.addNode('WriteSections', writeSectionsNode);
+  // g.addNode('Finalize', finalizeNode));
+  // g.addNode('EmitArtifacts', emitArtifactsNode);
 
   (g as any).addEdge(START, 'IngestRepo');
   (g as any).addEdge('IngestRepo', 'Scan');
@@ -55,13 +83,18 @@ export const compileReadmeGraph = () => {
   (g as any).addEdge('Docs', 'MergeSignals');
   (g as any).addEdge('Security', 'MergeSignals');
 
-  (g as any).addEdge('MergeSignals', 'AggregateSubprojects');
-  (g as any).addEdge('AggregateSubprojects', 'BuildEmbeddings');
-  (g as any).addEdge('BuildEmbeddings', 'WriteSections');
+  (g as any).addEdge('MergeSignals', 'WriteSections');
+
+  // (g as any).addEdge('MergeSignals', 'AggregateSubprojects');
+  // (g as any).addEdge('AggregateSubprojects', 'BuildEmbeddings');
+  // (g as any).addEdge('BuildEmbeddings', 'WriteSections');
 
   (g as any).addEdge('WriteSections', 'Finalize');
-  (g as any).addEdge('Finalize', 'EmitArtifacts');
-  (g as any).addEdge('EmitArtifacts', END);
+  (g as any).addEdge('Finalize', END);
+  // (g as any).addEdge('EmitArtifacts', END);
 
   return g.compile();
 };
+export const compile = () => compileReadmeGraph();
+export const graph = compile();
+export default graph;
