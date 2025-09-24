@@ -28,6 +28,7 @@ import { CiResponseDto } from 'src/dto/analysis/ci-response.dto/ci-response.dto'
 import { ConfigResponseDto } from 'src/dto/analysis/config-response.dto/config-response.dto';
 import { DocsResponseDto } from 'src/dto/analysis/docs-response.dto/docs-response.dto';
 import { RoutesResponseDto } from 'src/dto/analysis/routes-response.dto/routes-response.dto';
+import { TestsResponseDto } from 'src/dto/analysis/tests-response.dto/tests-response.dto';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -517,6 +518,63 @@ export class AnalysisController {
       });
     }
     const result = await this.run.runRoutes(repoRoot);
+    return res
+      .status(HttpStatus.OK)
+      .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
+  }
+
+  @Get('tests')
+  @ApiOperation({ summary: 'Summarize tests: frameworks, counts, locations' })
+  @ApiOkResponse({
+    type: TestsResponseDto,
+    schema: {
+      example: {
+        projectId: 'job_001',
+        status: 'ok',
+        tookMs: 25,
+        result: {
+          isMonorepo: true,
+          aggregated: { count: 3, frameworks: ['Jest'] },
+          perSubproject: [
+            {
+              name: 'frontend',
+              frameworks: ['Jest'],
+              totals: { count: 3 },
+              files: [
+                'src/App.test.js',
+                'src/components/Button.spec.tsx',
+                '__tests__/utils.test.ts',
+              ],
+            },
+            {
+              name: 'backend',
+              frameworks: [],
+              totals: { count: 0 },
+              files: [],
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async tests(@Param('projectId') projectId: string, @Res() res) {
+    const started = Date.now();
+    const rootBase =
+      process.env.READMEA_WORKSPACES_ROOT ||
+      path.join(__dirname, '..', 'workspaces');
+    const repoRoot = path.join(rootBase, projectId);
+    if (!fs.existsSync(repoRoot)) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        projectId,
+        status: 'error',
+        tookMs: Date.now() - started,
+        error: 'not_found',
+        message: 'Workspace not found',
+        details: { repoRoot },
+      });
+    }
+    const result = await this.run.runTests(repoRoot);
     return res
       .status(HttpStatus.OK)
       .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
