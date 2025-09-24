@@ -382,7 +382,7 @@ export class AnalysisController {
       .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
   }
 
-  @Get(':projectId/docs')
+  @Get('docs')
   @ApiOperation({ summary: 'Summarize docs: readmes, docs tree, topics' })
   @ApiOkResponse({
     type: DocsResponseDto,

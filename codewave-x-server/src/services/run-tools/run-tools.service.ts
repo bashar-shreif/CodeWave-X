@@ -1204,18 +1204,15 @@ export class RunToolsService {
     }
     const subDirs = dirs.size ? Array.from(dirs) : ['.'];
 
-    const isDocFile = (p: string) => {
-      const base = path.basename(p).toLowerCase();
-      if (/^readme(\.[a-z0-9]+)?$/.test(base)) return true;
-      if (
-        /(^|\/)(docs?|wiki|guides|manual|handbook|documentation)\//i.test(p)
-      ) {
-        return /\.(md|mdx|rst|adoc|txt|html)$/i.test(p);
-      }
-      if (/^(mkdocs\.y[a]?ml|docusaurus\.config\.(js|ts|cjs|mjs))$/i.test(base))
-        return true;
-      return false;
+    const isDocFile = (p: string) => /\.(md|mdx|rst|adoc|txt|html)$/i.test(p);
+    const looksLikePath = (s: string) => {
+      const b = path.basename(String(s));
+      const hasSep = /[\\/]/.test(String(s));
+      const hasExt = /\.[a-z0-9]{1,6}$/i.test(b);
+      const isReadme = /^readme(\.[a-z0-9]+)?$/i.test(b);
+      return hasSep || hasExt || isReadme;
     };
+    const norm = (p: string) => p.replace(/\\/g, '/').replace(/^\.\/+/, '');
 
     const perSubproject: {
       name: string;
@@ -1243,25 +1240,40 @@ export class RunToolsService {
 
       const toolReadmes = this.toStrings(
         out?.readmes ?? out?.readme ?? out?.topReadmes,
-      );
-      const toolDocs = this.toStrings(
-        out?.docs ?? out?.documents ?? out?.files,
-      );
-      const toolTopics = this.toStrings(
-        out?.topics ?? out?.coverage ?? out?.areas,
-      );
+      )
+        .filter(looksLikePath)
+        .map(norm)
+        .filter((p) => /^readme(\.[a-z0-9]+)?$/i.test(path.basename(p)));
 
-      const scanReadmes = pathsRel.filter((p) =>
-        /^readme(\.[a-z0-9]+)?$/i.test(path.basename(p)),
-      );
-      const scanDocs = pathsRel.filter(
-        (p) =>
-          isDocFile(p) && !/^readme(\.[a-z0-9]+)?$/i.test(path.basename(p)),
-      );
+      const toolDocs = this.toStrings(out?.docs ?? out?.documents ?? out?.files)
+        .filter(looksLikePath)
+        .map(norm)
+        .filter((p) => p.toLowerCase() !== 'readme.md' && isDocFile(p));
+
+      const scanReadmes = pathsRel
+        .filter((p) => /^readme(\.[a-z0-9]+)?$/i.test(path.basename(p)))
+        .map(norm);
+
+      const scanDocs = pathsRel
+        .filter((p) => {
+          const np = norm(p);
+          if (/^readme(\.[a-z0-9]+)?$/i.test(path.basename(np))) return false;
+          if (
+            /(^|\/)(docs?|wiki|guides|manual|handbook|documentation)\//i.test(
+              np,
+            ) &&
+            isDocFile(np)
+          )
+            return true;
+          return false;
+        })
+        .map(norm);
 
       const readmes = Array.from(new Set([...toolReadmes, ...scanReadmes]));
       const docs = Array.from(new Set([...toolDocs, ...scanDocs]));
-      const topics = Array.from(new Set(toolTopics));
+      const topics = Array.from(
+        new Set(this.toStrings(out?.topics ?? out?.coverage ?? out?.areas)),
+      );
 
       perSubproject.push({ name, readmes, docs, topics });
     }
