@@ -27,7 +27,7 @@
 
 ## N8N Automation Workflow
 
-### Slack
+### Readme Generator
 
 <img src="./readme/demo/n8n.png"/>
 
