@@ -67,3 +67,7 @@ codewave-x-server/src/uploads/
 codewave-x-server/node_modules/
 codewave-x-server/scripts/
 codewave-x-server/artifacts/
+
+codewave-x-ext/node_modules
+codewave-x-ext/dist
+codewave-x-ext/.env
