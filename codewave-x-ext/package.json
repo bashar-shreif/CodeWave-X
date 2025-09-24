@@ -14,8 +14,9 @@
   "contributes": {
     "commands": [
       {
-        "command": "codewave-x.helloWorld",
-        "title": "Hello World"
+        "command": "codewave-x.uploadCodebase",
+        "title": "Upload",
+        "category": "CodeWave-X"
       }
     ]
   },
