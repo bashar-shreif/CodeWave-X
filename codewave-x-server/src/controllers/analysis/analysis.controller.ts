@@ -27,6 +27,7 @@ import * as fs from 'fs';
 import { CiResponseDto } from 'src/dto/analysis/ci-response.dto/ci-response.dto';
 import { ConfigResponseDto } from 'src/dto/analysis/config-response.dto/config-response.dto';
 import { DocsResponseDto } from 'src/dto/analysis/docs-response.dto/docs-response.dto';
+import { RoutesResponseDto } from 'src/dto/analysis/routes-response.dto/routes-response.dto';
 
 @ApiTags('analysis')
 @Controller('/v1/projects/:projectId')
@@ -434,6 +435,88 @@ export class AnalysisController {
       });
     }
     const result = await this.run.runDocs(repoRoot);
+    return res
+      .status(HttpStatus.OK)
+      .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
+  }
+
+  @Get('routes')
+  @ApiOperation({ summary: 'Summarize web/API routes per subproject' })
+  @ApiOkResponse({
+    type: RoutesResponseDto,
+    schema: {
+      example: {
+        projectId: 'job_001',
+        status: 'ok',
+        tookMs: 31,
+        result: {
+          isMonorepo: true,
+          aggregated: {
+            count: 6,
+            httpMethods: ['GET', 'POST'],
+            apiCount: 4,
+            webCount: 2,
+          },
+          perSubproject: [
+            {
+              name: 'backend',
+              totals: { count: 4, httpMethods: ['GET', 'POST'] },
+              routes: [
+                {
+                  type: 'api',
+                  method: 'GET',
+                  path: '/api/v1/items',
+                  source: 'src/items/items.controller.ts',
+                },
+                {
+                  type: 'api',
+                  method: 'POST',
+                  path: '/api/v1/items',
+                  source: 'src/items/items.controller.ts',
+                },
+              ],
+            },
+            {
+              name: 'frontend',
+              totals: { count: 2, httpMethods: ['GET'] },
+              routes: [
+                {
+                  type: 'web',
+                  method: 'GET',
+                  path: '/',
+                  source: 'src/routes/index.tsx',
+                },
+                {
+                  type: 'web',
+                  method: 'GET',
+                  path: '/about',
+                  source: 'src/routes/about.tsx',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async routes(@Param('projectId') projectId: string, @Res() res) {
+    const started = Date.now();
+    const rootBase =
+      process.env.READMEA_WORKSPACES_ROOT ||
+      path.join(__dirname, '..', 'workspaces');
+    const repoRoot = path.join(rootBase, projectId);
+    if (!fs.existsSync(repoRoot)) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        projectId,
+        status: 'error',
+        tookMs: Date.now() - started,
+        error: 'not_found',
+        message: 'Workspace not found',
+        details: { repoRoot },
+      });
+    }
+    const result = await this.run.runRoutes(repoRoot);
     return res
       .status(HttpStatus.OK)
       .json({ projectId, status: 'ok', tookMs: Date.now() - started, result });
