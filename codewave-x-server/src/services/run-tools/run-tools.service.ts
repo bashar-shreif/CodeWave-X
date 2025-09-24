@@ -16,6 +16,7 @@ import { summarizeArchitecture } from 'src/readme-agent/tools/summarize-architec
 import { summarizeCI } from 'src/readme-agent/tools/summarize-ci';
 import summarizeConfig from 'src/readme-agent/tools/summarize-config';
 import summarizeDocs from 'src/readme-agent/tools/summarize-docs';
+import summarizeRoutes from 'src/readme-agent/tools/summarize-routes';
 
 type DepObj = { name: string; version: string; type: string };
 const IGNORE_DIRS = new Set([
@@ -1287,5 +1288,106 @@ export class RunToolsService {
     return { isMonorepo: subDirs.length > 1, aggregated, perSubproject };
   }
 
-  
+  async runRoutes(repoRoot: string) {
+    const entries: ManifestEntry[] = await this.manifests.walk(repoRoot);
+    const manifestNames = new Set([
+      'package.json',
+      'composer.json',
+      'pyproject.toml',
+      'go.mod',
+      'Cargo.toml',
+      'Gemfile',
+      'pom.xml',
+      'build.gradle',
+      'build.gradle.kts',
+    ]);
+    const dirs = new Set<string>();
+    for (const e of entries) {
+      const bn = path.basename(e.path);
+      if (manifestNames.has(bn)) dirs.add(path.dirname(e.path));
+    }
+    const subDirs = dirs.size ? Array.from(dirs) : ['.'];
+
+    const normRoute = (
+      r: any,
+    ): {
+      type: 'api' | 'web';
+      method: string;
+      path: string;
+      source: string;
+    } => {
+      const method = String(r?.method ?? r?.verb ?? 'GET').toUpperCase();
+      const routePath = String(r?.path ?? r?.route ?? r?.url ?? '/');
+      const tRaw = String(r?.type ?? r?.kind ?? '').toLowerCase();
+      const type: 'api' | 'web' =
+        tRaw === 'api' || tRaw === 'rest'
+          ? 'api'
+          : tRaw === 'web' || tRaw === 'page'
+            ? 'web'
+            : routePath.startsWith('/api')
+              ? 'api'
+              : 'web';
+      const source = String(
+        r?.source ?? r?.file ?? r?.handler ?? r?.location ?? '',
+      );
+      return { type, method, path: routePath, source };
+    };
+
+    const perSubproject: {
+      name: string;
+      totals: { count: number; httpMethods: string[] };
+      routes: {
+        type: 'api' | 'web';
+        method: string;
+        path: string;
+        source: string;
+      }[];
+    }[] = [];
+
+    for (const rel of subDirs) {
+      const name = rel === '.' ? path.basename(repoRoot) : path.basename(rel);
+      const subAbs = path.join(repoRoot, rel);
+      const manifest =
+        rel === '.'
+          ? entries
+          : entries
+              .filter((en) => en.path.startsWith(rel + path.sep))
+              .map<ManifestEntry>((en) => ({
+                path: en.path.slice(rel.length + 1),
+                size: en.size,
+                hash: en.hash,
+              }));
+
+      const out: any = await summarizeRoutes({ repoRoot: subAbs, manifest });
+
+      const list: any[] = Array.isArray(out?.routes)
+        ? out.routes
+        : [
+            ...(Array.isArray(out?.api) ? out.api : []),
+            ...(Array.isArray(out?.web) ? out.web : []),
+          ];
+
+      const routes = list.map(normRoute).filter((x) => x.path);
+      const httpMethods = Array.from(
+        new Set(routes.map((r) => r.method)),
+      ).sort();
+      const totals = { count: routes.length, httpMethods };
+
+      perSubproject.push({ name, totals, routes });
+    }
+
+    const allRoutes = perSubproject.flatMap((s) => s.routes);
+    const count = allRoutes.length;
+    const httpMethods = Array.from(
+      new Set(allRoutes.map((r) => r.method)),
+    ).sort();
+    const apiCount = allRoutes.filter((r) => r.type === 'api').length;
+    const webCount = allRoutes.filter((r) => r.type === 'web').length;
+
+    return {
+      isMonorepo: subDirs.length > 1,
+      aggregated: { count, httpMethods, apiCount, webCount },
+      perSubproject,
+    };
+  }
 }
